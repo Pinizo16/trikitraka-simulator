@@ -1,460 +1,432 @@
-<!--
-  Triki Traka Simulator
-  README — basado en el estado real del repositorio
--->
-
 <div align="center">
 
-# ⚡ TRIKI TRAKA SIMULATOR
+# TRIKI TRAKA SIMULATOR
 
-### Roblox multiplayer simulator — progresión, anclaje, duelos y economía
+### Roblox multiplayer simulator built with Luau and Rojo
 
-![Roblox](https://img.shields.io/badge/ROBLOX-000000?style=for-the-badge&logo=roblox&logoColor=white)
-![Luau](https://img.shields.io/badge/LUAU-00A2FF?style=for-the-badge&logo=lua&logoColor=white)
-![Rojo](https://img.shields.io/badge/ROJO-7.7.0-B7410E?style=for-the-badge)
-![GitHub](https://img.shields.io/badge/GITHUB-181717?style=for-the-badge&logo=github&logoColor=white)
+[![Roblox](https://img.shields.io/badge/ROBLOX-000000?style=for-the-badge&logo=roblox&logoColor=white)](https://www.roblox.com/es/games/76410005427046/)
+[![Luau](https://img.shields.io/badge/LUAU-00A2FF?style=for-the-badge&logo=lua&logoColor=white)](https://luau.org/)
+[![Rojo](https://img.shields.io/badge/ROJO-7.7.0-B7410E?style=for-the-badge)](https://rojo.space/)
+[![GitHub](https://img.shields.io/badge/GITHUB-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Pinizo16/trikitraka-simulator)
 
-**Triki Traka Simulator** es un juego multijugador de Roblox construido en Luau y organizado con Rojo.
-
-[Repositorio](https://github.com/Pinizo16/trikitraka-simulator) · [Reportar un problema](https://github.com/Pinizo16/trikitraka-simulator/issues)
+[Play Triki Traka Simulator](https://www.roblox.com/es/games/76410005427046/)
 
 </div>
 
 ---
 
-## 📖 Índice
+## Languages
 
-- [🎮 ¿Qué es Triki Traka Simulator?](#-qué-es-triki-traka-simulator)
-- [⚡ Cómo se juega](#-cómo-se-juega)
-- [🪢 Anclaje](#-anclaje)
-- [⚔️ Duelos](#️-duelos)
-- [💥 Expulsión](#-expulsión)
-- [🤖 Bots](#-bots)
-- [📈 Progresión y Rebirth](#-progresión-y-rebirth)
-- [🛒 Tienda](#-tienda)
-- [🎁 Racha diaria](#-racha-diaria)
-- [🏆 Leaderboards globales](#-leaderboards-globales)
-- [💾 Datos y persistencia](#-datos-y-persistencia)
-- [🖥️ Interfaz](#️-interfaz)
-- [🧩 Arquitectura](#-arquitectura)
-- [🛠️ Desarrollo](#️-desarrollo)
-- [📸 Gameplay y capturas](#-gameplay-y-capturas)
-- [🚧 Estado](#-estado)
+**English** | [Español](#español)
 
----
+# English
 
-## 🎮 ¿Qué es Triki Traka Simulator?
+## Overview
 
-Triki Traka Simulator mezcla un simulador de progresión con interacción directa entre jugadores.
+**Triki Traka Simulator** is a Roblox multiplayer game focused on player interaction, progression, click-based competition and an in-game economy.
 
-El núcleo de la experiencia gira alrededor de:
+The central interaction is **Present Yourself**. A player can get behind another player, gain XP over time and put the target in a position where they can spend coins to attempt an expulsion.
 
-- **Anclar jugadores** para generar XP.
-- **Expulsar** a quien te haya anclado.
-- **Retar** a otros jugadores o a bots.
-- **Ganar monedas** mediante duelos y progresión.
-- **Comprar mejoras** de poder, protección y movimiento.
-- **Hacer Rebirths** para obtener multiplicadores permanentes.
-- Mantener un progreso histórico mediante **Nivel Conseguido**.
-- Competir en **rankings globales**, compartidos entre servidores.
+The current codebase also contains PvP duels, battle bots, roaming bots, daily rewards, upgrades, Rebirths, Robux products, contextual recommendations and global leaderboards.
 
-> El README describe el código y la configuración presentes actualmente en el repositorio; las mecánicas pueden cambiar durante el desarrollo.
+> This README documents the current repository state and configuration.
 
----
+## How the Game Works
 
-## ⚡ Cómo se juega
+The main progression loop is:
 
-### 1. Sube de nivel
+```text
+Earn XP
+  |
+  v
+Level up
+  |
+  +----> Buy upgrades
+  |
+  +----> Challenge players or bots
+  |
+  +----> Use Present Yourself
+  |
+  +----> Reach the Rebirth requirement
+                |
+                v
+             Rebirth
+                |
+                v
+      Permanent multipliers
+```
 
-La XP permite subir de nivel. La cantidad necesaria para el siguiente nivel crece según la tabla de progresión configurada.
+## Present Yourself
 
-La XP obtenida mediante anclaje se ve afectada por el **Multi XP** del jugador.
+The English in-game terminology for the core interaction is:
 
-### 2. Mejora tu personaje
+> **Present Yourself**
 
-Las monedas permiten comprar mejoras de:
+A custom proximity prompt is placed on another player's back. Activating it places the player behind the target and starts the XP interaction.
 
-- **Poder** → más Clicks/Click y anclaje más rápido.
-- **Escudos** → protección contra el anclaje.
-- **Movimiento** → mayor velocidad de carrera.
-- **Rebirth** → reinicio con ventajas permanentes.
+While using Present Yourself:
 
-### 3. Compite
+- The attached player is positioned behind the target.
+- The attached player's movement is locked.
+- The attached player gains XP periodically.
+- The target loses XP periodically.
+- Each target can have only one attached player.
+- A player cannot challenge another player while attached.
+- The target can attempt an expulsion.
+- After an expulsion, a cooldown can prevent immediate re-attachment.
 
-Puedes retar a jugadores desde el menú **RETAR** o enfrentarte a bots del mapa.
+### Base values
 
----
-
-## 🪢 Anclaje
-
-La mecánica principal del juego es **Triki Traka**.
-
-El jugador utiliza un prompt personalizado en la espalda de otro jugador:
-
-> **Triki Traka** · **por detrás**
-
-Al anclarte:
-
-- Quedas colocado detrás del objetivo.
-- Tu velocidad de movimiento queda bloqueada mientras estás anclado.
-- Solo puede haber **un jugador anclado por objetivo**.
-- El jugador anclado recibe XP periódicamente.
-- El objetivo pierde XP periódicamente.
-- No puedes iniciar un duelo mientras estás anclado.
-- El objetivo puede intentar expulsarte.
-- Tras ciertas expulsiones existe un tiempo de espera antes de volver a anclar al mismo objetivo.
-
-### XP del anclaje
-
-Con la configuración actual:
-
-| Acción | Cantidad base |
+| System | Current value |
 |---|---:|
-| XP del jugador anclado | +20 |
-| XP perdida por el objetivo | -10 |
-| Intervalo base | 1 s |
-| Cooldown tras expulsión | 45 s |
+| XP gained by attached player | +20 |
+| XP lost by target | -10 |
+| Base XP interval | 1 second |
+| Re-attachment cooldown after expulsion | 45 seconds |
 
-El **Multi XP** puede aumentar la XP obtenida por el jugador.
+Multi XP affects XP gained by the attached player.
 
-La pérdida de XP puede hacer que el objetivo baje de nivel. El sistema conserva el nivel mínimo en **1**.
+XP loss can reduce the target's level, but the level cannot fall below 1.
 
----
+## Expulsion
 
-## 💥 Expulsión
+The target can try to remove the player currently behind them.
 
-El objetivo de un anclaje puede intentar expulsar al jugador que tiene detrás.
+The expulsion system uses:
 
-La expulsión utiliza dos recursos:
+**Coins**  
+The target selects how many coins to spend. More money increases the expulsion probability.
 
-**💰 Monedas**  
-El objetivo decide cuánto dinero arriesga. Gastar más aumenta la probabilidad de expulsión.
+**Defense**  
+Once the attempt starts, the attached player gets a **3-second** defense window and can click anywhere on the screen to reduce the expulsion probability.
 
-**🖱️ Defensa**  
-Cuando comienza la batalla, el jugador anclado tiene una ventana de **3 segundos** para hacer clic y reducir la probabilidad de expulsión.
+### Outcomes
 
-El sistema calcula la probabilidad según el dinero invertido, la defensa y el nivel del jugador anclado.
+**Successful**
 
-### Resultado
+- The attached player is released.
+- The selected amount of coins is spent.
+- The attached player receives the configured re-attachment cooldown.
 
-**Expulsión exitosa**
-- El anclado queda liberado.
-- Se aplica el cooldown correspondiente.
-- El dinero utilizado se descuenta.
+**Failed**
 
-**Expulsión fallida**
-- El anclado permanece en su sitio.
-- Recibe protección temporal de **3 segundos** contra otro intento.
+- The attached player remains.
+- The attached player receives **3 seconds of protection** against another expulsion attempt.
 
----
+## Duels
 
-## ⚔️ Duelos
+The game contains player-versus-player and player-versus-bot duels.
 
-Los duelos están disponibles contra jugadores y bots.
+### PvP Duels
 
-### PvP
+Players can challenge another player from the **Retar** menu.
 
-Desde **RETAR** puedes seleccionar a otro jugador.
+```text
+Challenge
+   |
+   v
+Accept / Reject
+   |
+   v
+3...2...1
+   |
+   v
+5-second click phase
+   |
+   v
+Result
+   |
+   v
+Coin reward
+```
 
-Flujo:
+Challenges expire after **12 seconds** if unanswered.
 
-`Reto → Aceptar/Rechazar → Cuenta atrás → Duelo → Resultado`
+The winner receives:
 
-La solicitud expira tras **12 segundos**.
+- The duel win.
+- Coins.
+- A persistent PvP victory.
 
-La batalla incluye:
+Dueling does not award XP.
 
-- Cuenta atrás **3 → 2 → 1**
-- **¡YA!**
-- **5 segundos** para hacer clic lo más rápido posible
-- Resultado final
-- Recompensa en monedas para el ganador
+When both players submit the same number of clicks, the current implementation uses level as the tie-breaker.
 
-El jugador ganador obtiene también una **Victoria PvP** persistente.
+### Battle Bots
 
-En caso de igualdad de clics, el sistema utiliza el **nivel** como desempate.
+Battle bots are challengeable directly from the map.
 
-### Bots de batalla
+Their custom prompt shows **Retar** and their bot level.
 
-Los bots del mapa muestran:
+Each bot level has a configured click requirement and coin reward.
 
-> **Retar** · **Nivel N**
+Winning a bot duel:
 
-Cada nivel de bot tiene una cantidad de clics necesaria definida en la configuración.
+- Gives coins.
+- Adds a persistent victory.
+- Uses the reward configured for that bot level.
+- Can reduce the reward when the bot is below the player's level, subject to the configured minimum reward factor.
 
-Al ganar:
+## Roaming Bots
 
-- Obtienes monedas.
-- Obtienes una victoria.
-- La recompensa depende del nivel del bot.
-- Si el bot es considerablemente más débil que el jugador, su recompensa se reduce, con un mínimo configurado del 25% del valor base.
-
----
-
-## 🤖 Bots
-
-El juego dispone de **BotsAmbulantes** independientes de los bots de batalla.
-
-Se cargan desde:
+Roaming bots are separate from battle bots and are loaded from:
 
 `Workspace/BotsAmbulantes`
 
-Estos bots:
+They:
 
-- Caminan por el mapa.
-- Usan velocidades aleatorias dentro del rango configurado.
-- Generan una reserva de XP.
-- Pueden ser anclados por jugadores.
-- Pueden expulsar aleatoriamente a un jugador anclado.
-- Utilizan identificadores internos para distinguir cada instancia.
-- Reproducen animaciones mediante el sistema **AnimLOD** del cliente.
+- Move around the map autonomously.
+- Use randomized movement speeds within the configured range.
+- Generate and store a reserve of XP.
+- Can be used with Present Yourself.
+- Can randomly expel an attached player.
+- Have internal bot identifiers.
+- Use client-side animation LOD for distant bots.
 
-### Reserva de XP
+### Current configuration
 
-Configuración actual:
-
-| Parámetro | Valor |
+| Parameter | Value |
 |---|---:|
-| Generación | 1 XP/s |
-| Reserva inicial | 30 XP |
-| Reserva máxima | 250 XP |
-| Comprobación de expulsión | cada 5 s |
-| Probabilidad configurada | 20% |
+| XP generated | 1 XP/s |
+| Starting XP reserve | 30 |
+| Maximum XP reserve | 250 |
+| Expulsion check | every 5 seconds |
+| Configured expulsion chance | 20% |
+| Movement speed range | 10–20 |
 
-Cuando un jugador se ancla a un bot ambulante, la XP se consume de la reserva del bot.
+When a player uses Present Yourself on a roaming bot, XP is taken from that bot's reserve.
 
----
+## Progression
 
-## 📈 Progresión y Rebirth
+The saved profile contains:
 
-El perfil del jugador guarda, entre otros, estos valores:
+`Nivel`, `XP`, `MaxXP`, `Monedas`, `Rebirths`, `Victorias`
 
-`Nivel` · `XP` · `MaxXP` · `Monedas` · `Rebirths` · `Victorias`
+and progression values including:
 
-Además existen:
+`NivelConseguido`, `ClicksPorClick`, `MultiXP`, `MultiClicks`, `VelocidadAnclaje`, `VelocidadMovimiento`
 
-`NivelConseguido` · `ClicksPorClick` · `MultiXP` · `MultiClicks` · `VelocidadAnclaje` · `VelocidadMovimiento`
+## Rebirth
 
-### Rebirth
+The first Rebirth requires **level 7**.
 
-El primer Rebirth requiere **nivel 7**.
+The configured requirements are:
 
-Los siguientes requisitos actuales son:
+```text
+7 → 8 → 10 → 13 → 17 → 22 → 28 → 35 → 43
+→ 52 → 62 → 73 → 85 → 98 → 112
+```
 
-`7 → 8 → 10 → 13 → 17 → 22 → 28 → 35 → 43 → 52 → 62 → 73 → 85 → 98 → 112`
+When a Rebirth is performed:
 
-Al hacer Rebirth:
+- Level returns to 1.
+- XP returns to its initial value.
+- Clicks per click returns to 1.
+- Present Yourself speed upgrades reset.
+- Movement upgrades reset.
+- Rebirth count increases.
+- Multi XP increases permanently.
+- Multi Clicks increases permanently.
+- Coins are not reset.
+- **NivelConseguido is not reset.**
 
-- El nivel vuelve a **1**.
-- La XP vuelve a su valor inicial.
-- `ClicksPorClick` vuelve a 1.
-- La mejora de velocidad de anclaje se reinicia.
-- La mejora de movimiento se reinicia.
-- El contador de Rebirths aumenta.
-- **Multi XP** aumenta permanentemente.
-- **Multi Clicks** aumenta permanentemente.
-- **Nivel Conseguido no se reinicia**.
-- Las monedas no se reinician por el Rebirth.
+## NivelConseguido
 
-Los multiplicadores obtenidos dependen del número de Rebirth realizado.
+**NivelConseguido** is the lifetime level counter, not the current level.
 
----
+Whenever the current level increases, the increase is added to NivelConseguido.
 
-## 🛒 Tienda
+A Rebirth resets the current level to 1 without reducing this lifetime counter.
 
-La interfaz tiene cinco pestañas:
+```text
+Reach a higher level
+       |
+       v
+NivelConseguido increases
+       |
+       v
+     Rebirth
+       |
+       v
+Current level = 1
+Lifetime counter remains
+```
 
-| Pestaña | Contenido |
+This value is used by the global **NIVEL CONSEGUIDO** leaderboard.
+
+## Shop
+
+The Shop has five tabs:
+
+| Tab | Contents |
 |---|---|
-| 💎 **Robux** | Productos de monetización |
-| ⚡ **Poder** | Clicks/Click + velocidad de anclaje |
-| 🛡️ **Escudos** | Protección anti-anclaje |
-| 🏃 **Movimiento** | Velocidad de carrera |
-| ♻️ **Rebirth** | Reinicio con ventajas permanentes |
+| **Robux** | Developer products |
+| **Poder** | Clicks per click and Present Yourself speed |
+| **Escudos** | Anti-Present-Yourself protection |
+| **Movimiento** | Movement speed |
+| **Rebirth** | Rebirth information and action |
 
-### Poder
+### Power
 
-Incluye mejoras de:
+The configured coin upgrades include:
 
 - +1 Click/Click
 - +5 Clicks/Click
 - +10 Clicks/Click
-- Anclaje -0.1 s
-- Anclaje -0.5 s
-- Anclaje -1.0 s
+- Present Yourself -0.1s
+- Present Yourself -0.5s
+- Present Yourself -1.0s
 
-### Escudos
+### Shields
 
-La tienda muestra:
+The Shop currently displays:
 
-- Escudo 1 minuto
-- Escudo 5 minutos
-- Escudo 15 minutos
+- 1-minute shield
+- 5-minute shield
+- 15-minute shield
 
-La configuración también contempla un **Escudo Legendario de 1 hora**.
+The configuration also contains a 1-hour Legendary Shield.
 
-### Movimiento
+### Movement
 
-La tienda muestra:
+The configured movement upgrades include:
 
 - +1 Walk
 - +3 Walk
 - +5 Walk
+- +10 Walk
 
-La velocidad de movimiento parte de **16 WalkSpeed**.
+The configured starting WalkSpeed is **16**.
 
-### Precios dinámicos
+### Dynamic Pricing
 
-Los precios de las mejoras dependen de factores como:
+Upgrade prices are calculated from player state, including:
 
-- Nivel del jugador.
-- Mejoras que ya posee.
-- Número de Rebirths.
+- Current level.
+- Owned upgrades.
+- Rebirth count.
 
-Los Rebirths aplican descuentos progresivos en los precios.
+Rebirths provide progressive price reductions.
 
----
+## Daily Streak
 
-## 🎁 Racha diaria
+The game has a persistent Daily Streak reward system.
 
-El juego incorpora una recompensa diaria persistente.
+A player can claim one reward per day and continue a streak by claiming on consecutive days.
 
-El sistema:
+Rewards can include:
 
-- Permite una reclamación por día.
-- Mantiene una racha si reclamas en días consecutivos.
-- Reinicia la racha cuando se rompe la continuidad.
-- Guarda la información de la racha.
+- Coins.
+- XP.
+- Anti-Present-Yourself protection time on selected streak days.
 
-Las recompensas aumentan conforme avanza la racha e incluyen:
+The current reward table contains entries through **day 14**.
 
-- 💰 Monedas
-- ⭐ XP
-- 🛡️ Tiempo de protección anti-anclaje en determinados días
+## Global Leaderboards
 
-La tabla configurada contiene recompensas hasta el **día 14**.
+The project has four global leaderboards using **OrderedDataStore**.
 
----
+They are shared across servers.
 
-## 🏆 Leaderboards globales
-
-Los rankings utilizan **OrderedDataStore**, por lo que no están limitados a los jugadores del servidor actual.
-
-Hay **4 leaderboards globales**:
-
-| Ranking | Qué mide |
+| Leaderboard | Measures |
 |---|---|
-| 🥇 **NIVEL CONSEGUIDO** | Niveles alcanzados a lo largo de toda la vida |
-| 💰 **MONEDAS** | Monedas actuales |
-| ♻️ **REBIRTHS** | Rebirths acumulados |
-| ⚔️ **VICTORIAS PVP** | Victorias de duelo acumuladas |
+| **NIVEL CONSEGUIDO** | Lifetime levels accumulated |
+| **MONEDAS** | Current coins |
+| **REBIRTHS** | Total Rebirths |
+| **VICTORIAS PVP** | Persistent PvP victories |
 
-Cada tablero muestra hasta **10 posiciones**.
+Each board displays up to **10 entries** and is rendered on map Parts with SurfaceGui.
 
-### Nivel Conseguido
+## Robux Products and Recommendations
 
-Este valor es diferente del nivel actual.
+The game uses Roblox Developer Products for additional progression.
 
-Cada vez que el jugador sube de nivel, aumenta:
+Configured product groups include:
 
-`NivelConseguido += niveles ganados`
-
-Cuando se realiza un Rebirth, el nivel vuelve a 1 pero **NivelConseguido permanece intacto**.
-
-Esto permite medir la progresión total conseguida por un jugador aunque haya realizado múltiples Rebirths.
-
----
-
-## 💎 Monetización
-
-El juego utiliza **Developer Products** de Roblox.
-
-Actualmente existen productos para:
-
-- Packs de monedas.
-- Escudo Legendario.
+- Coin packs.
+- Legendary Shield.
 - +50 Clicks/Click.
-- Velocidad adicional de anclaje.
-- Velocidad adicional de movimiento.
+- Additional Present Yourself speed.
+- Additional movement speed.
 
-También existe un sistema de **promociones contextuales**.
+The game also has contextual recommendations based on session data such as:
 
-Las promociones pueden recomendar diferentes productos según el comportamiento de la sesión, por ejemplo:
+- Level stagnation.
+- Coin balance.
+- Upgrade state.
+- Recent Present Yourself activity.
+- Recent expulsions.
+- Duel results.
+- Proximity to a Rebirth requirement.
 
-- Estancamiento de nivel.
-- Falta de monedas.
-- Bajo poder por click.
-- Pérdidas en duelos.
-- Uso frecuente del anclaje.
-- Mejoras de movimiento bajas.
-- Rebirth disponible.
+A recommendation can present a Rebirth action or a selected Robux product. Promotional products use tiers that can progress after purchases.
 
-Las promociones utilizan **tiers** y pueden avanzar al siguiente nivel después de una compra.
+## Data Persistence
 
----
+Player data uses Roblox **DataStoreService**.
 
-## 💾 Datos y persistencia
-
-Los datos de jugador se guardan mediante:
-
-`DataStoreService`
-
-DataStore principal:
+The main player DataStore is:
 
 `AuraData_v1`
 
-El sistema persiste estadísticas de progresión, mejoras y datos de racha diaria.
+Saved data includes progression, upgrades and Daily Streak state.
 
-El guardado automático está configurado cada:
+Automatic saving is configured every **60 seconds**, with forced saves on important actions such as Daily claims and Rebirths.
 
-**60 segundos**
+## Interface
 
-También existen guardados forzados en acciones importantes, como la recompensa diaria y el Rebirth.
+The client interface is built as **Trike Arcade**.
 
----
-
-## 🖥️ Interfaz
-
-El cliente utiliza un sistema de UI propio llamado **Trike Arcade**.
-
-### Identidad visual
-
-| Elemento | Valor |
+| Visual token | Value |
 |---|---|
-| Fondo principal | `#12141C` |
-| Superficie | `#1E2130` |
-| Oro | `#F5C542` |
-| Naranja | `#FF8A1F` |
-| Rojo | `#E74C3C` |
-| Verde | `#2ECC71` |
-| Morado | `#9B59FF` |
-| Cian | `#3DDCFF` |
+| Main background | `#12141C` |
+| Surface | `#1E2130` |
+| Gold | `#F5C542` |
+| Orange | `#FF8A1F` |
+| Red | `#E74C3C` |
+| Green | `#2ECC71` |
+| Purple | `#9B59FF` |
+| Cyan | `#3DDCFF` |
 
-La interfaz utiliza **Gotham / GothamBlack**, tarjetas oscuras, bordes dorados, iconos y paneles personalizados.
+The UI uses Gotham/GothamBlack, dark cards, gold strokes, custom icons and custom interaction prompts.
 
-### HUD
+The HUD currently shows level, coins, XP, Rebirths, Multi XP, protection state and the main interaction buttons.
 
-El HUD principal muestra:
+## Screenshots
 
-- Nivel.
-- Monedas.
-- Barra de XP.
-- Rebirths.
-- Multi XP.
-- Protección activa.
-- Botones de Retar, Tienda, Daily y acciones relacionadas con el anclaje.
+The repository contains an asset guide in [assets/screenshots/README.md](assets/screenshots/README.md).
 
-Los prompts de interacción también se renderizan con una interfaz personalizada.
+The planned gallery is:
 
----
+| File | Subject |
+|---|---|
+| `01-overview.png` | Main gameplay and HUD |
+| `02-triki-traka-prompt.png` | Present Yourself prompt |
+| `03-triki-traka-active.png` | Active Present Yourself interaction |
+| `04-expulsion-defense.png` | Expulsion defense screen |
+| `05-pvp-duel.png` | PvP duel |
+| `06-bot-duel.png` | Battle bot duel |
+| `07-shop.png` | Shop |
+| `08-daily-reward.png` | Daily Streak |
+| `09-rebirth.png` | Rebirth |
+| `10-global-leaderboards.png` | Global leaderboards |
+| `11-roaming-bots.png` | Roaming bots |
 
-## 🧩 Arquitectura
+## Gameplay Video
 
-El proyecto está organizado con **Rojo 7.7.0**.
+The planned project asset is:
+
+`assets/video/gameplay.mp4`
+
+GitHub supports MP4 uploads. For an inline player in a README, a GitHub-hosted video attachment URL is the reliable option. See [GitHub's documentation](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files) for supported video formats.
+
+## Architecture
+
+The project uses **Rojo 7.7.0** with Aftman.
 
 ```text
 trikitraka/
-│
+|
 ├── src/
 │   ├── shared/
 │   │   └── Config.lua
@@ -487,97 +459,536 @@ trikitraka/
 │   └── bot/
 │       └── BotWalk.lua
 │
+├── assets/
+│   ├── screenshots/
+│   │   └── README.md
+│   └── video/
+│       └── README.md
+│
 ├── default.project.json
 ├── aftman.toml
 ├── PROJECT_MAP.md
 └── README.md
 ```
 
-### Flujo del servidor
+### Server modules
 
-```text
-Context
-   ↓
-Mod1
-   ↓
-Mod2
-   ↓
-Mod3
-   ↓
-Mod4
-   ↓
-Sistemas auxiliares
-   ↓
-Leaderboards
+| Module | Main responsibility |
+|---|---|
+| `Config.lua` | Balance, progression, prices, products, prompts and configuration |
+| `Context.lua` | Shared server state and RemoteEvents |
+| `Mod1.lua` | Player data, leaderstats, XP, levels, Rebirth and core Present Yourself state |
+| `Mod2.lua` | Player lifecycle, prompts, expulsion, purchases and Rebirth |
+| `Mod3.lua` | PvP/bot duels, rewards, Daily and product receipts |
+| `Mod4.lua` | Contextual recommendations and roaming bots |
+| `Leaderboards.lua` | Global OrderedDataStore leaderboards |
+| `Safety.lua` | Cleanup, guards and safety checks |
+
+## Development
+
+### Requirements
+
+- Roblox Studio
+- Git
+- Aftman
+- Rojo 7.7.0
+
+### Clone
+
+```bash
+git clone https://github.com/Pinizo16/trikitraka-simulator.git
+cd trikitraka-simulator
 ```
 
-### Responsabilidades
+### Install Tools
 
-**Config.lua**  
-Balance, tablas de progresión, precios, productos, iconos, prompts y configuración de sistemas.
+```bash
+aftman install
+```
 
-**Mod1.lua**  
-Datos, leaderstats, XP, niveles, Rebirth, anclaje base y estados del jugador.
+### Start Rojo
 
-**Mod2.lua**  
-Entrada/salida de jugadores, prompts, expulsión, compras y Rebirth.
+```bash
+rojo serve
+```
 
-**Mod3.lua**  
-Duelos PvP/bots, recompensas, daily y monetización.
+Then connect the project from Roblox Studio with the Rojo plugin.
 
-**Mod4.lua**  
-Recomendaciones contextuales y bots ambulantes.
+## Status
 
-**Leaderboards.lua**  
-Rankings globales mediante OrderedDataStore y SurfaceGui.
+**In active development.**
 
-**init.client.lua**  
-HUD, tienda, retos, minijuego, daily, prompts personalizados y UI de expulsión.
+The codebase, balance and interface are still being iterated.
+
+## Links
+
+- [Play the game](https://www.roblox.com/es/games/76410005427046/)
+- [GitHub repository](https://github.com/Pinizo16/trikitraka-simulator)
+- [Project map](PROJECT_MAP.md)
+- [Screenshot guide](assets/screenshots/README.md)
+- [Gameplay video guide](assets/video/README.md)
 
 ---
 
-## 📸 Gameplay y capturas
+# Español
 
-El repositorio actualmente no contiene todavía capturas ni un GIF de gameplay públicos, por lo que esta sección queda preparada para añadirlos sin enlazar recursos inexistentes.
+## Descripción
 
-### 🎬 Gameplay
+**Triki Traka Simulator** es un juego multijugador de Roblox centrado en la interacción entre jugadores, la progresión, la competición mediante clics y la economía del juego.
+
+La mecánica central es **Triki Traka por detrás**. Un jugador puede colocarse detrás de otro, ganar XP con el tiempo y poner al objetivo en una situación en la que puede gastar monedas para intentar expulsarlo.
+
+El código actual también incluye duelos PvP, bots de batalla, bots ambulantes, recompensas diarias, mejoras, Rebirths, productos de Robux, recomendaciones contextuales y leaderboards globales.
+
+> Este README documenta el estado actual del repositorio y su configuración.
+
+## Cómo funciona
+
+El ciclo principal de progresión es:
 
 ```text
-assets/gameplay.gif
+Ganar XP
+  |
+  v
+Subir de nivel
+  |
+  +----> Comprar mejoras
+  |
+  +----> Retar jugadores o bots
+  |
+  +----> Usar Triki Traka por detrás
+  |
+  +----> Alcanzar el requisito de Rebirth
+                |
+                v
+             Rebirth
+                |
+                v
+      Multiplicadores permanentes
 ```
 
-### 🖼️ Capturas recomendadas
+## Triki Traka por detrás
+
+La terminología actual en español para la interacción principal es:
+
+> **Triki Traka** — **por detrás**
+
+Un ProximityPrompt personalizado aparece en la espalda de otro jugador. Al activarlo, el jugador se coloca detrás del objetivo y comienza la interacción de XP.
+
+Mientras utiliza Triki Traka por detrás:
+
+- El jugador queda colocado detrás del objetivo.
+- Su movimiento queda bloqueado.
+- El jugador detrás gana XP periódicamente.
+- El objetivo pierde XP periódicamente.
+- Cada objetivo solo puede tener un jugador detrás.
+- No se puede retar mientras se está detrás de otro jugador.
+- El objetivo puede intentar una expulsión.
+- Tras una expulsión puede existir un cooldown antes de volver a hacerlo sobre el mismo objetivo.
+
+### Valores base
+
+| Sistema | Valor actual |
+|---|---:|
+| XP ganada por el jugador detrás | +20 |
+| XP perdida por el objetivo | -10 |
+| Intervalo base de XP | 1 segundo |
+| Cooldown tras una expulsión | 45 segundos |
+
+La Multi XP afecta a la XP ganada.
+
+La pérdida de XP puede reducir el nivel del objetivo, pero no puede bajar de 1.
+
+## Expulsión
+
+El objetivo puede intentar quitarse al jugador que está detrás.
+
+El sistema utiliza:
+
+**Monedas**  
+El objetivo decide cuántas monedas gastar. Una cantidad mayor aumenta la probabilidad de expulsión.
+
+**Defensa**  
+Cuando empieza el intento, el jugador detrás tiene una ventana de **3 segundos** en la que puede hacer clic en cualquier parte de la pantalla para reducir la probabilidad de expulsión.
+
+### Resultados
+
+**Expulsión exitosa**
+
+- El jugador detrás queda libre.
+- Se gastan las monedas seleccionadas.
+- Se aplica el cooldown configurado.
+
+**Expulsión fallida**
+
+- El jugador detrás permanece.
+- Recibe **3 segundos de protección** contra otro intento.
+
+## Duelos
+
+El juego tiene duelos PvP y duelos contra bots.
+
+### Duelos PvP
+
+Los jugadores pueden retar a otro jugador desde el menú **Retar**.
 
 ```text
-assets/screenshots/
-├── lobby.png
-├── gameplay.png
-├── shop.png
-├── duel.png
-├── anchoring.png
-└── leaderboards.png
+Retar
+  |
+  v
+Aceptar / Rechazar
+  |
+  v
+3...2...1
+  |
+  v
+5 segundos de clics
+  |
+  v
+Resultado
+  |
+  v
+Recompensa en monedas
 ```
 
-Cuando se añadan esos archivos al repositorio, pueden mostrarse directamente aquí:
+Los retos caducan tras **12 segundos** si no se responden.
 
-```html
-<div align="center">
+El ganador recibe:
 
-<img src="assets/gameplay.gif" width="90%" alt="Gameplay">
+- La victoria del duelo.
+- Monedas.
+- Una Victoria PvP persistente.
 
-</div>
+Los duelos no dan XP.
+
+Cuando ambos jugadores hacen la misma cantidad de clics, el nivel se utiliza como desempate.
+
+### Bots de batalla
+
+Los bots de batalla pueden ser retados directamente desde el mapa.
+
+Su prompt personalizado muestra **Retar** y el nivel del bot.
+
+Cada nivel tiene una cantidad de clics necesaria y una recompensa configuradas.
+
+Ganar contra un bot:
+
+- Da monedas.
+- Añade una victoria persistente.
+- Utiliza la recompensa configurada para ese nivel.
+- Puede reducir la recompensa cuando el bot está por debajo del nivel del jugador, según el factor mínimo configurado.
+
+## Bots ambulantes
+
+Los bots ambulantes son independientes de los bots de batalla y se cargan desde:
+
+`Workspace/BotsAmbulantes`
+
+Estos bots:
+
+- Se desplazan automáticamente por el mapa.
+- Utilizan velocidades aleatorias dentro del rango configurado.
+- Generan y almacenan una reserva de XP.
+- Pueden recibir Triki Traka por detrás.
+- Pueden expulsar aleatoriamente al jugador que tengan detrás.
+- Tienen identificadores internos.
+- Utilizan LOD de animaciones en cliente para los bots lejanos.
+
+### Configuración actual
+
+| Parámetro | Valor |
+|---|---:|
+| XP generada | 1 XP/s |
+| Reserva inicial | 30 |
+| Reserva máxima | 250 |
+| Comprobación de expulsión | cada 5 s |
+| Probabilidad configurada | 20% |
+| Velocidad de movimiento | 10–20 |
+
+Cuando un jugador usa Triki Traka sobre un bot ambulante, la XP se consume de la reserva de ese bot.
+
+## Progresión
+
+El perfil guardado contiene:
+
+`Nivel`, `XP`, `MaxXP`, `Monedas`, `Rebirths`, `Victorias`
+
+y valores como:
+
+`NivelConseguido`, `ClicksPorClick`, `MultiXP`, `MultiClicks`, `VelocidadAnclaje`, `VelocidadMovimiento`
+
+## Rebirth
+
+El primer Rebirth requiere **nivel 7**.
+
+Los requisitos configurados son:
+
+```text
+7 → 8 → 10 → 13 → 17 → 22 → 28 → 35 → 43
+→ 52 → 62 → 73 → 85 → 98 → 112
 ```
 
----
+Al hacer Rebirth:
 
-## 🛠️ Desarrollo
+- El nivel vuelve a 1.
+- La XP vuelve a su valor inicial.
+- Clicks por Click vuelve a 1.
+- Las mejoras de velocidad de Triki Traka se reinician.
+- Las mejoras de movimiento se reinician.
+- Aumenta el número de Rebirths.
+- Multi XP aumenta permanentemente.
+- Multi Clicks aumenta permanentemente.
+- Las monedas no se reinician.
+- **NivelConseguido no se reinicia.**
+
+## Nivel Conseguido
+
+**Nivel Conseguido** es el contador de niveles acumulados durante toda la vida del jugador, no el nivel actual.
+
+Cada vez que sube el nivel actual, se suma ese aumento a NivelConseguido.
+
+Un Rebirth devuelve el nivel actual a 1 sin reducir este contador.
+
+Este valor se utiliza en el leaderboard global **NIVEL CONSEGUIDO**.
+
+## Tienda
+
+La tienda tiene cinco pestañas:
+
+| Pestaña | Contenido |
+|---|---|
+| **Robux** | Developer Products |
+| **Poder** | Clicks por click y velocidad de Triki Traka |
+| **Escudos** | Protección anti-Triki Traka |
+| **Movimiento** | Velocidad de movimiento |
+| **Rebirth** | Información y acción de Rebirth |
+
+### Poder
+
+Las mejoras de monedas configuradas incluyen:
+
+- +1 Click/Click
+- +5 Clicks/Click
+- +10 Clicks/Click
+- Triki Traka -0.1 s
+- Triki Traka -0.5 s
+- Triki Traka -1.0 s
+
+### Escudos
+
+La tienda muestra actualmente:
+
+- Escudo 1 minuto
+- Escudo 5 minutos
+- Escudo 15 minutos
+
+La configuración también contiene un Escudo Legendario de 1 hora.
+
+### Movimiento
+
+Las mejoras configuradas incluyen:
+
+- +1 Walk
+- +3 Walk
+- +5 Walk
+- +10 Walk
+
+La WalkSpeed inicial configurada es **16**.
+
+### Precios dinámicos
+
+El precio de las mejoras depende del estado del jugador, incluyendo:
+
+- Nivel actual.
+- Mejoras adquiridas.
+- Número de Rebirths.
+
+Los Rebirths proporcionan descuentos progresivos.
+
+## Racha diaria
+
+El juego cuenta con un sistema persistente de **Racha Diaria**.
+
+Se puede reclamar una recompensa al día y mantener la racha reclamando en días consecutivos.
+
+Las recompensas pueden incluir:
+
+- Monedas.
+- XP.
+- Tiempo de protección anti-Triki Traka en determinados días.
+
+La tabla actual contiene recompensas hasta el **día 14**.
+
+## Leaderboards globales
+
+El proyecto dispone de cuatro leaderboards globales mediante **OrderedDataStore**.
+
+Se comparten entre servidores.
+
+| Leaderboard | Qué mide |
+|---|---|
+| **NIVEL CONSEGUIDO** | Niveles acumulados durante toda la vida |
+| **MONEDAS** | Monedas actuales |
+| **REBIRTHS** | Rebirths totales |
+| **VICTORIAS PVP** | Victorias PvP persistentes |
+
+Cada tablero muestra hasta **10 posiciones** y se representa sobre Parts del mapa mediante SurfaceGui.
+
+## Productos Robux y recomendaciones
+
+El juego utiliza Developer Products de Roblox.
+
+Los grupos configurados incluyen:
+
+- Packs de monedas.
+- Escudo Legendario.
+- +50 Clicks/Click.
+- Velocidad adicional de Triki Traka.
+- Velocidad adicional de movimiento.
+
+También existe un sistema de recomendaciones contextuales basado en datos de sesión como:
+
+- Estancamiento de nivel.
+- Dinero disponible.
+- Estado de mejoras.
+- Actividad reciente de Triki Traka.
+- Expulsiones recientes.
+- Resultados de duelos.
+- Cercanía al requisito de Rebirth.
+
+Una recomendación puede mostrar una acción de Rebirth o un producto Robux seleccionado. Los productos promocionales utilizan tiers.
+
+## Persistencia de datos
+
+Los datos utilizan **DataStoreService** de Roblox.
+
+El DataStore principal es:
+
+`AuraData_v1`
+
+Se guardan datos de progresión, mejoras y estado de la racha diaria.
+
+El guardado automático está configurado cada **60 segundos**, con guardados forzados en acciones importantes como reclamar el Daily y hacer Rebirth.
+
+## Interfaz
+
+La interfaz cliente utiliza **Trike Arcade**.
+
+| Elemento | Valor |
+|---|---|
+| Fondo principal | `#12141C` |
+| Superficie | `#1E2130` |
+| Oro | `#F5C542` |
+| Naranja | `#FF8A1F` |
+| Rojo | `#E74C3C` |
+| Verde | `#2ECC71` |
+| Morado | `#9B59FF` |
+| Cian | `#3DDCFF` |
+
+Utiliza Gotham/GothamBlack, tarjetas oscuras, bordes dorados, iconos personalizados y prompts personalizados.
+
+El HUD muestra nivel, monedas, XP, Rebirths, Multi XP, protección y los botones principales.
+
+## Capturas
+
+El repositorio contiene la guía de assets en [assets/screenshots/README.md](assets/screenshots/README.md).
+
+Archivos exactos:
+
+| Archivo | Contenido |
+|---|---|
+| `01-overview.png` | Vista general del gameplay y HUD |
+| `02-triki-traka-prompt.png` | Prompt de Triki Traka |
+| `03-triki-traka-active.png` | Triki Traka por detrás activo |
+| `04-expulsion-defense.png` | Defensa de expulsión |
+| `05-pvp-duel.png` | Duelo PvP |
+| `06-bot-duel.png` | Duelo contra bot |
+| `07-shop.png` | Tienda |
+| `08-daily-reward.png` | Racha diaria |
+| `09-rebirth.png` | Rebirth |
+| `10-global-leaderboards.png` | Leaderboards globales |
+| `11-roaming-bots.png` | Bots ambulantes |
+
+## Vídeo de gameplay
+
+El asset previsto es:
+
+`assets/video/gameplay.mp4`
+
+GitHub admite vídeos MP4. Para mostrar un reproductor integrado en un README, la opción fiable es utilizar una URL de vídeo alojada por GitHub. Consulta la [documentación de GitHub](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files) sobre formatos de vídeo compatibles.
+
+## Arquitectura
+
+El proyecto utiliza **Rojo 7.7.0** y Aftman.
+
+```text
+trikitraka/
+|
+├── src/
+│   ├── shared/
+│   │   └── Config.lua
+│   │
+│   ├── server/
+│   │   ├── init.server.lua
+│   │   ├── Context.lua
+│   │   ├── Mod1.lua
+│   │   ├── Mod2.lua
+│   │   ├── Mod3.lua
+│   │   ├── Mod4.lua
+│   │   ├── Economy.lua
+│   │   ├── Leaderboards.lua
+│   │   ├── Stick.lua
+│   │   ├── Safety.lua
+│   │   └── ...
+│   │
+│   ├── client/
+│   │   └── init.client.lua
+│   │
+│   ├── client_extra/
+│   │   ├── AnclajeAnim.client.lua
+│   │   ├── AnclajeSit.client.lua
+│   │   └── AnimLOD.client.lua
+│   │
+│   ├── character/
+│   │   ├── Animate.client.lua
+│   │   └── SitForce.client.lua
+│   │
+│   └── bot/
+│       └── BotWalk.lua
+│
+├── assets/
+│   ├── screenshots/
+│   │   └── README.md
+│   └── video/
+│       └── README.md
+│
+├── default.project.json
+├── aftman.toml
+├── PROJECT_MAP.md
+└── README.md
+```
+
+### Módulos del servidor
+
+| Módulo | Responsabilidad principal |
+|---|---|
+| `Config.lua` | Balance, progresión, precios, productos, prompts y configuración |
+| `Context.lua` | Estado compartido y RemoteEvents |
+| `Mod1.lua` | Datos, leaderstats, XP, niveles, Rebirth y estado principal de Triki Traka |
+| `Mod2.lua` | Ciclo del jugador, prompts, expulsión, compras y Rebirth |
+| `Mod3.lua` | Duelos PvP/bots, recompensas, Daily y compras |
+| `Mod4.lua` | Recomendaciones contextuales y bots ambulantes |
+| `Leaderboards.lua` | Leaderboards globales mediante OrderedDataStore |
+| `Safety.lua` | Limpieza, guards y comprobaciones de seguridad |
+
+## Desarrollo
 
 ### Requisitos
 
 - Roblox Studio
 - Git
 - Aftman
-- Rojo **7.7.0**
+- Rojo 7.7.0
 
 ### Clonar
 
@@ -586,71 +997,40 @@ git clone https://github.com/Pinizo16/trikitraka-simulator.git
 cd trikitraka-simulator
 ```
 
-### Rojo
-
-El proyecto utiliza Aftman para fijar la versión de Rojo.
+### Instalar herramientas
 
 ```bash
 aftman install
+```
+
+### Iniciar Rojo
+
+```bash
 rojo serve
 ```
 
-Después conecta Roblox Studio mediante el plugin de Rojo.
+Después conecta el proyecto desde Roblox Studio mediante el plugin de Rojo.
 
-### Configuración
+## Estado
 
-La mayoría del balance se controla desde:
+**En desarrollo activo.**
 
-`src/shared/Config.lua`
+El código, el balance y la interfaz siguen evolucionando.
 
-Esto incluye:
+## Enlaces
 
-- XP.
-- Tablas de nivel.
-- Rebirth.
-- Economía.
-- Expulsión.
-- Daily.
-- Bots.
-- Mejoras.
-- Productos Robux.
-- Promociones.
-- Leaderboards.
-
----
-
-## 🚧 Estado
-
-<div align="center">
-
-![Status](https://img.shields.io/badge/STATUS-IN%20DEVELOPMENT-F5C542?style=for-the-badge)
-
-**Triki Traka Simulator está en desarrollo activo.**
-
-Las mecánicas, el balance y la interfaz pueden cambiar durante el desarrollo.
-
-</div>
-
----
-
-## 👤 Autor
-
-<div align="center">
-
-### Pinizo
-
-Desarrollado para **Roblox** con **Luau + Rojo**.
-
-[GitHub @Pinizo16](https://github.com/Pinizo16)
-
-</div>
+- [Jugar al juego](https://www.roblox.com/es/games/76410005427046/)
+- [Repositorio de GitHub](https://github.com/Pinizo16/trikitraka-simulator)
+- [Mapa del proyecto](PROJECT_MAP.md)
+- [Guía de capturas](assets/screenshots/README.md)
+- [Guía del vídeo](assets/video/README.md)
 
 ---
 
 <div align="center">
 
-### ⚡ TRIKI TRAKA SIMULATOR
+**TRIKI TRAKA SIMULATOR**
 
-*Ancla. Compite. Progresa. Haz Rebirth.*
+Roblox · Luau · Rojo
 
 </div>
