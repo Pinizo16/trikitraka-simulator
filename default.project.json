@@ -1,0 +1,45 @@
+{
+  "name": "trikitraka",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "AuraUI": {
+          "$path": "src/client"
+        },
+        "AnclajeSit": {
+          "$path": "src/client_extra/AnclajeSit.client.lua"
+        },
+        "AnimLOD": {
+          "$path": "src/client_extra/AnimLOD.client.lua"
+        }
+      },
+      "StarterCharacterScripts": {
+        "$className": "StarterCharacterScripts",
+        "Animate": {
+          "$path": "src/character/Animate.client.lua"
+        }
+      }
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "FilteringEnabled": true
+      }
+    }
+  }
+}
