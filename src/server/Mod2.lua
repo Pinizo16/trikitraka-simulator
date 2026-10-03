@@ -428,11 +428,9 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 		if actual > ahora then
 			antiAnclajeHasta[player] = actual + anti.segundos
 			ctx.syncProteccionCliente(player)
-		ctx.syncProteccionCliente(player)
 		else
 			antiAnclajeHasta[player] = ahora + anti.segundos
 			ctx.syncProteccionCliente(player)
-		ctx.syncProteccionCliente(player)
 		end
 		local mins = math.floor(anti.segundos / 60)
 		NotificarCliente:FireClient(player, {
@@ -609,8 +607,6 @@ function ctx.calcularClicksBot(nivelBot, _player)
 	return Config.calcularClicksBot(nivelBot, 1)
 end
 
-local botsConfigurados = {} -- [modelo] = true
-
 function ctx.configurarBot(modelo)
 	if not modelo or not modelo.Parent then return false end
 	if not ctx.esBotInstancia(modelo) then return false end
@@ -674,6 +670,10 @@ function ctx.configurarBot(modelo)
 		if not player or not player:IsA("Player") then return end
 		if duelosActivos[player] then
 			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Ya estás en un duelo" })
+			return
+		end
+		if ancladoA[player] then
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "No puedes retar mientras estás anclado" })
 			return
 		end
 

@@ -115,6 +115,16 @@ SolicitarDueloDirecto.OnServerEvent:Connect(function(player, targetUserId)
 	if duelosActivos[player] or duelosActivos[target] then return end
 	if duelosPendientes[target] then return end
 
+	-- No permitir duelos si alguno está anclado
+	if ancladoA[player] then
+		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "No puedes dueler mientras estás anclado" })
+		return
+	end
+	if ancladoA[target] then
+		NotificarCliente:FireClient(player, { tipo = "error", mensaje = target.Name .. " está anclado y no puede dueler" })
+		return
+	end
+
 	duelosPendientes[target] = { retador = player, tiempo = tick() }
 	ResponderDuelo:FireClient(target, player.UserId, player.Name)
 end)
@@ -124,7 +134,12 @@ ResponderDuelo.OnServerEvent:Connect(function(player, acepto, retadorUserId)
 	if not data then return end
 	local retador = data.retador
 	duelosPendientes[player] = nil
-	if not acepto or not retador or not retador.Parent then return end
+	if not acepto or not retador or not retador.Parent then
+		if retador and retador.Parent then
+			NotificarCliente:FireClient(retador, { tipo = "info", mensaje = player.Name .. " rechazó el duelo" })
+		end
+		return
+	end
 	if retador.UserId ~= retadorUserId then return end
 	if duelosActivos[player] or duelosActivos[retador] then return end
 
@@ -139,7 +154,13 @@ task.spawn(function()
 		task.wait(1)
 		local now = tick()
 		for p, data in pairs(duelosPendientes) do
-			if now - data.tiempo > 8 then duelosPendientes[p] = nil end
+			if now - data.tiempo > 8 then
+				duelosPendientes[p] = nil
+				local retador = data.retador
+				if retador and retador.Parent then
+					NotificarCliente:FireClient(retador, { tipo = "info", mensaje = "El duelo con " .. p.Name .. " expiró sin respuesta" })
+				end
+			end
 		end
 	end
 end)
@@ -194,6 +215,9 @@ EnviarClicks.OnServerEvent:Connect(function(player, cantidadClicks)
 
 			local monedas = Config.getMonedasPvP(ctx.getStat(ganador, "Nivel"))
 			ctx.agregarMonedas(ganador, monedas)
+
+			-- Actualizar stat Victorias en leaderstats (para leaderboards)
+			ctx.setStat(ganador, "Victorias", ctx.getStat(ganador, "Victorias") + 1)
 			do
 				local function markWin(p)
 					local mg = playerMetrics[p]
@@ -427,14 +451,6 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 	ctx.guardarDatos(player)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
-
-local anclarABot
-
-
-
--- =====================================================
--- RECOMENDACIONES INTELIGENTES
--- =====================================================
 
 -- =====================================================
 -- RECOMENDACIONES INTELIGENTES (scoring competitivo)

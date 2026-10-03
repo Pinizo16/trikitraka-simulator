@@ -251,6 +251,8 @@ function ctx.setupBotAnimate(model)
 	model:SetAttribute("BotAnimateOK", true)
 end
 
+local anclarABot
+local setupBotAmbulante
 function setupBotAmbulante(model)
 	if not model or not model:IsA("Model") then return end
 	if botsAmbulantes[model] then return end
@@ -459,10 +461,6 @@ end)
 
 -- Modificar tick XP: si objetivo es bot, gastar reserva
 -- (el Heartbeat existente asume Player - parcheamos con pre-check vía wrapper)
-do
-	local oldPairs = pairs
-	-- Patch the XP heartbeat by adding a second loop for bots only is cleaner:
-end
 
 RunService.Heartbeat:Connect(function()
 	local ahora = tick()
@@ -488,39 +486,9 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- CFrame stick also works for bot models (HRP exists) - existing loop uses objetivo.Character
--- For bots objetivo.Character is nil - need stick loop support
-RunService.Heartbeat:Connect(function()
-	for anclado, objetivo in pairs(ancladoA) do
-		if typeof(objetivo) == "Instance" and objetivo:IsA("Model") and botsAmbulantes[objetivo] then
-			if not anclado.Parent or not objetivo.Parent then
-				ctx.desanclar(anclado)
-				continue
-			end
-			local charA = anclado.Character
-			if not charA then continue end
-			local hrpA = charA:FindFirstChild("HumanoidRootPart")
-			local hrpO = ctx.getHRP(objetivo)
-			local humA = charA:FindFirstChildOfClass("Humanoid")
-			if not (hrpA and hrpO) then continue end
-			-- Detrás del objetivo (opuesto al LookVector)
-			local weld = anclajeWelds[anclado]
-			if not weld or not weld.Parent then
-				ctx.crearWeldAnclaje(anclado, objetivo)
-			end
-			hrpA.AssemblyLinearVelocity = Vector3.zero
-			hrpA.AssemblyAngularVelocity = Vector3.zero
-			if humA then
-				humA.WalkSpeed = 0
-				humA.JumpPower = 0
-				pcall(function() humA.JumpHeight = 0 end)
-				local tr = animTracks[anclado]
-				if not tr or not tr.IsPlaying then
-				end
-			end
-		end
-	end
-end)
+-- REMOVED: Redundant Heartbeat — Stick module handles CFrame positioning via
+-- ctx.crearWeldAnclaje override, and ctx.aplicarEstadoAnclado handles WalkSpeed/Jump.
+-- The first Heartbeat above already validates targets and calls desanclar.
 
 -- Init bots from folder
 task.spawn(function()
@@ -571,3 +539,4 @@ task.spawn(function()
 end)
 
 end
+ 

@@ -99,11 +99,9 @@ return function(ctx)
 		end
 		duelosPendientes[player] = nil
 		duelosActivos[player] = nil
-		pcall(function()
-			if ctx.guardarDatos then
-				ctx.guardarDatos(player)
-			end
-		end)
+		-- No llamamos ctx.guardarDatos aquí: Mod2.PlayerRemoving ya guarda
+		-- antes de que cleanupPlayer ejecute. Una segunda llamada sobreescribiría
+		-- PromoTiers con {} (ya limpiado por Mod2) → pérdida de datos.
 		antiAnclajeHasta[player] = nil
 		playerMetrics[player] = nil
 		dailyData[player] = nil
@@ -140,6 +138,7 @@ return function(ctx)
 						ctx.desanclar(anc)
 					end)
 				end
+				ancladosEn[player] = nil
 			end
 		end)
 	end

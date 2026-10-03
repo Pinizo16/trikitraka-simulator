@@ -118,11 +118,6 @@ Config.VELOCIDAD_PACKS = {
 	{ id = "vel_10", nombre = "Anclaje -1.0s",  niveles = 10, costeBase = 1000 },
 }
 
-Config.WALKSPEED_BASE = 16
-Config.WALKSPEED_POR_NIVEL = 1.5
-Config.WALKSPEED_MAX_NIVELES = 50
-Config.PRECIO_MULTI_POR_WALK_OWNED = 0.10
-
 Config.WALKSPEED_PACKS = {
 	{ id = "walk_1",  nombre = "Correr +1",  niveles = 1,  costeBase = 120  },
 	{ id = "walk_3",  nombre = "Correr +3",  niveles = 3,  costeBase = 320  },
@@ -389,6 +384,8 @@ Config.ECONOMIA = {
 	MONEDAS_N1_MIN = 100,
 	MONEDAS_N1_MAX = 200,
 	CRECIMIENTO = 1.35,
+	FACTOR_AJUSTE_SUBIDA = 1.0,
+	FACTOR_AJUSTE_BAJADA = 1.0,
 }
 
 -- Multi precio tienda por nivel / descuento por rebirths (índice rebirths+1)
@@ -427,8 +424,11 @@ Config.EXPULSION = {
 	PROB_MIN = 0.05,
 	REDUCCION_DEFENSA_MAX = 0.35,
 	DURACION_DEFENSA = 3,
+	DEFENSA_DURACION = 3,
 	DINERO_BASE = 50,
 	DINERO_POR_NIVEL = 25,
+	DINERO_MINIMO = 50,
+	PROTECCION_FALLO_SEGUNDOS = 3,
 	CLICKS_BASE = 8,
 	CLICKS_POR_NIVEL = 2,
 }
@@ -468,7 +468,7 @@ Config.RECOMENDACIONES = {
 	MIN_SESSION = 30,            -- no recomendar antes de X s de sesión
 	ESTANCAMIENTO_NIVEL_S = 90, -- sin subir de nivel
 	ESTANCAMIENTO_DINERO_S = 60,
-	POCO_DINERO_RATIO = 0.2,     -- por debajo del 40% del min del rango
+	POCO_DINERO_RATIO = 0.2,     -- por debajo del 20% del min del rango
 	MUCHOS_ANCHORS_SIN_NIVEL = 2,
 	MUCHAS_EXPULSIONES = 1,
 	SCORE_MINIMO = 30,          -- umbral para mostrar recomendación
@@ -611,7 +611,10 @@ end
 function Config.ajustarMonedasANivel(monedas, nivel, factor)
 	local minV, maxV = Config.getRangoMonedas(nivel)
 	factor = factor or 1
-	return math.clamp(math.floor((tonumber(monedas) or 0) * factor), math.floor(minV * 0.1), maxV * 5)
+	local original = tonumber(monedas) or 0
+	local nuevo = math.clamp(math.floor(original * factor), math.floor(minV * 0.1), maxV * 5)
+	local cambio = nuevo ~= original
+	return nuevo, cambio
 end
 
 function Config.getDailyReward(streak)
@@ -642,14 +645,26 @@ end
 
 function Config.calcExpulsion(dinero, defensaClicks, nivelAnclado)
 	local E = Config.EXPULSION
-	local base = Config.probDesdeDinero(dinero, nivelAnclado)
+	local dineroNum = tonumber(dinero) or 0
+	local full = Config.getDineroParaProbFull(nivelAnclado)
+	local base = Config.probDesdeDinero(dineroNum, nivelAnclado)
 	local need = Config.getClicksParaDefensaMax(nivelAnclado)
 	local redMax = E.REDUCCION_DEFENSA_MAX or 0.35
 	local red = 0
 	if need > 0 then
 		red = math.min(redMax, (tonumber(defensaClicks) or 0) / need * redMax)
 	end
-	return math.clamp(base - red, E.PROB_MIN or 0.05, E.PROB_MAX or 0.95), red
+	local probFinal = math.clamp(base - red, E.PROB_MIN or 0.05, E.PROB_MAX or 0.95)
+	return {
+		probabilidad = probFinal,
+		probInicial = base,
+		probMax = E.PROB_MAX or 0.95,
+		dineroParaFull = full,
+		dinero = dineroNum,
+		reduccion = red,
+		reduccionMax = redMax,
+		clicksParaMax = need,
+	}
 end
 
 function Config.getMultiPrecioNivel(nivel)

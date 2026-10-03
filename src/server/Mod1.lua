@@ -670,9 +670,12 @@ RunService.Heartbeat:Connect(function()
 			pcall(function() humA.JumpHeight = 0 end)
 		end
 		-- Si el weld se rompió (respawn, etc.), recrear
-		local weld = anclajeWelds[anclado]
-		if not weld or not weld.Parent then
-			ctx.crearWeldAnclaje(anclado, objetivo)
+		-- Stick usa CFrame positioning en su propio Heartbeat, no welds
+		if not ctx.UNIFIED_STICK then
+			local weld = anclajeWelds[anclado]
+			if not weld or not weld.Parent then
+				ctx.crearWeldAnclaje(anclado, objetivo)
+			end
 		end
 	end
 end)

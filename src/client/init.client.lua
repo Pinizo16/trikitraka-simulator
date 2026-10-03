@@ -2075,6 +2075,8 @@ local defensaActiva = false
 local defensaClicksLocal = 0
 local defensaInputConn = nil
 local defensaTimerConn = nil
+local defensaOverlayClickConn = nil
+local defensaOverlayDownConn = nil
 local defensaFinLocal = 0
 
 local function enviarDinero()
@@ -2103,6 +2105,14 @@ local function stopDefensaInput()
 	if defensaTimerConn then
 		defensaTimerConn:Disconnect()
 		defensaTimerConn = nil
+	end
+	if defensaOverlayClickConn then
+		defensaOverlayClickConn:Disconnect()
+		defensaOverlayClickConn = nil
+	end
+	if defensaOverlayDownConn then
+		defensaOverlayDownConn:Disconnect()
+		defensaOverlayDownConn = nil
 	end
 	defOverlay.Visible = false
 end
@@ -2136,8 +2146,8 @@ local function startDefensaInput(_duracionIgnorado)
 		end
 	end)
 
-	defOverlay.MouseButton1Click:Connect(registrarClickDefensa)
-	defOverlay.MouseButton1Down:Connect(registrarClickDefensa)
+	defensaOverlayClickConn = defOverlay.MouseButton1Click:Connect(registrarClickDefensa)
+	defensaOverlayDownConn = defOverlay.MouseButton1Down:Connect(registrarClickDefensa)
 
 	defensaTimerConn = RunService.RenderStepped:Connect(function()
 		if not defensaActiva then return end
