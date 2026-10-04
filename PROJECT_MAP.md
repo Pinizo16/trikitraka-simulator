@@ -63,3 +63,13 @@ Context → Mod1 → Mod2 → Mod3 → Mod4
 ## Rojo
 
 `default.project.json` → Shared, Server, AuraUI, AnclajeSit, AnimLOD, etc.
+
+## Tutorial
+
+| Pieza | Ubicación |
+|-------|-----------|
+| Estado + remotes | `Context.tutorialDone`, `TutorialSync`, `TutorialAction` |
+| Persistencia | `Mod1.guardarDatos` → `TutorialDone` |
+| Gate al join | `Mod2` PlayerAdded |
+| UI pasos | `client/init.client.lua` |
+| Flag | `Config.TUTORIAL` |

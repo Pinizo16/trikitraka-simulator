@@ -114,9 +114,46 @@ end)
 local ultimoReto = {} -- [player] = tick
 
 SolicitarDueloDirecto.OnServerEvent:Connect(function(player, targetUserId)
+	-- Tutorial: retar bot por nombre (solo nivel 1)
+	if typeof(targetUserId) == "string" then
+		if not (ctx.tutorialActive and ctx.tutorialActive[player]) then return end
+		local nombre = targetUserId
+		local modelo = nil
+		for _, inst in ipairs(Workspace:GetDescendants()) do
+			if inst:IsA("Model") and inst.Name == nombre and inst:FindFirstChild("PromptBot", true) then
+				modelo = inst
+				break
+			end
+		end
+		if not modelo then
+			for _, inst in ipairs(Workspace:GetChildren()) do
+				if inst:IsA("Model") and inst.Name == nombre then
+					modelo = inst
+					break
+				end
+			end
+		end
+		if not modelo then
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Bot no encontrado" })
+			return
+		end
+		local nv = ctx.extraerNivelBot and ctx.extraerNivelBot(modelo.Name) or 1
+		if nv ~= 1 then
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "En el tutorial solo bots nivel 1" })
+			return
+		end
+		if ctx.iniciarDueloBot then
+			ctx.iniciarDueloBot(player, modelo)
+		end
+		return
+	end
 	if typeof(targetUserId) ~= "number" then return end
 	local target = Players:GetPlayerByUserId(targetUserId)
 	if not target or target == player then return end
+	if ctx.tutorialActive and (ctx.tutorialActive[player] or ctx.tutorialActive[target]) then
+		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "No disponible durante el tutorial" })
+		return
+	end
 	if duelosActivos[player] or duelosActivos[target] then
 		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Alguien ya está en duelo" })
 		return
@@ -184,7 +221,7 @@ end)
 EnviarClicks.OnServerEvent:Connect(function(player, cantidadClicks)
 	if typeof(cantidadClicks) ~= "number" then return end
 
-	local multi = ctx.getStat(player, "ClicksPorClick") * ctx.getStat(player, "MultiClicks")
+	local multi = ctx.getClicksTotal(player) * ctx.getStat(player, "MultiClicks")
 	cantidadClicks = math.clamp(math.floor(cantidadClicks * multi), 0, 2000)
 
 	local data = duelosActivos[player]
@@ -235,6 +272,9 @@ EnviarClicks.OnServerEvent:Connect(function(player, cantidadClicks)
 			do
 				local function markWin(p)
 					ctx.setStat(p, "Victorias", ctx.getStat(p, "Victorias") + 1)
+					if ctx.leaderboardOnStatChanged then
+						ctx.leaderboardOnStatChanged(p, "Victorias", ctx.getStat(p, "Victorias"))
+					end
 					local mg = playerMetrics[p]
 					if not mg then return end
 					mg.wins = (mg.wins or 0) + 1
@@ -337,6 +377,9 @@ ClaimDaily.OnServerEvent:Connect(function(player)
 		antiAnclajeHasta[player] = math.max(actual, ahora) + reward.antiSegundos
 		ctx.syncProteccionCliente(player)
 	end
+	if ctx.tutorialActive and ctx.tutorialActive[player] then
+		ctx.tutorialDailyClaimed[player] = true
+	end
 
 	-- Guardado forzado inmediato
 	local saved = ctx.guardarDatos(player)
@@ -344,7 +387,7 @@ ClaimDaily.OnServerEvent:Connect(function(player)
 
 	NotificarCliente:FireClient(player, {
 		tipo = "exito",
-		mensaje = string.format("Daily día %d: +%d 💰 +%d XP", reward.streak, reward.monedas, reward.xp)
+		mensaje = string.format("Daily día %d: +%d monedas +%d XP", reward.streak, reward.monedas, reward.xp)
 	})
 	SyncDaily:FireClient(player, {
 		canClaim = false,
@@ -393,17 +436,17 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 			ctx.syncProteccionCliente(player)
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡" .. (def.nombre or "Escudo") .. " activado!" })
 		elseif def.clicksExtra then
-			local actual = ctx.getStat(player, "ClicksPorClick")
-			ctx.setStat(player, "ClicksPorClick", actual + def.clicksExtra)
+			local actual = ctx.getStat(player, "ClicksRobux")
+			ctx.setStat(player, "ClicksRobux", actual + def.clicksExtra)
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡+" .. def.clicksExtra .. " Clicks/Click!" })
 		elseif def.nivelesVel then
-			local actual = ctx.getStat(player, "VelocidadAnclaje")
-			ctx.setStat(player, "VelocidadAnclaje", actual + def.nivelesVel)
+			local actual = ctx.getStat(player, "VelocidadAnclajeRobux")
+			ctx.setStat(player, "VelocidadAnclajeRobux", actual + def.nivelesVel)
 			local delta = Config.formatDeltaSegundos and Config.formatDeltaSegundos(def.nivelesVel) or ("-" .. (def.nivelesVel * 0.1) .. "s")
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡Anclaje más rápido " .. delta .. "!" })
 		elseif def.nivelesWalk then
-			local actual = ctx.getStat(player, "VelocidadMovimiento")
-			ctx.setStat(player, "VelocidadMovimiento", actual + def.nivelesWalk)
+			local actual = ctx.getStat(player, "VelocidadMovimientoRobux")
+			ctx.setStat(player, "VelocidadMovimientoRobux", actual + def.nivelesWalk)
 			ctx.aplicarEstadoLibre(player)
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡+" .. def.nivelesWalk .. " Correr!" })
 		else
@@ -438,13 +481,13 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 			end
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡" .. (tier.label or "Nivel") .. "!" })
 		elseif tier.clicks then
-			ctx.setStat(player, "ClicksPorClick", ctx.getStat(player, "ClicksPorClick") + tier.clicks)
+			ctx.setStat(player, "ClicksRobux", ctx.getStat(player, "ClicksRobux") + tier.clicks)
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡" .. (tier.label or "Clicks") .. "!" })
 		elseif tier.niveles and info.trackId == "vel_anclaje" then
-			ctx.setStat(player, "VelocidadAnclaje", ctx.getStat(player, "VelocidadAnclaje") + tier.niveles)
+			ctx.setStat(player, "VelocidadAnclajeRobux", ctx.getStat(player, "VelocidadAnclajeRobux") + tier.niveles)
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡" .. (tier.label or Config.formatDeltaSegundos(tier.niveles) or "Anclaje") .. "!" })
 		elseif tier.niveles and info.trackId == "correr" then
-			ctx.setStat(player, "VelocidadMovimiento", ctx.getStat(player, "VelocidadMovimiento") + tier.niveles)
+			ctx.setStat(player, "VelocidadMovimientoRobux", ctx.getStat(player, "VelocidadMovimientoRobux") + tier.niveles)
 			ctx.aplicarEstadoLibre(player)
 			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡" .. (tier.label or "Correr") .. "!" })
 		elseif tier.monedas then
@@ -620,7 +663,7 @@ table.insert(candidateGenerators, function(s, player)
 	return {{
 		kind = "rebirth", score = score, factores = factores,
 		razon = string.format("Multi XP x%.2f → x%.2f", s.multiXP, nextMulti),
-		titulo = "♻️ Hacer REBIRTH",
+		titulo = "Hacer REBIRTH",
 		label = string.format("Multi XP x%.2f → x%.2f | Clicks x%.2f → x%.2f",
 			s.multiXP, nextMulti, s.multiCk, s.multiCk * Config.getMultiClicksAlRebirth((s.rebirths or 0) + 1)),
 	}}

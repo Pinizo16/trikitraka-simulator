@@ -76,7 +76,7 @@ function ctx.evaluarRecomendaciones(player)
 	local snap = ctx.buildPlayerSnapshot(player)
 	if cfg.DEBUG then
 		print(string.format(
-			"[Rec][%s] SNAP nv=%d XP=%.0f%% 💰=%d (rango %d-%d) MultiXP=x%.2f clicks=%d walk=%d vel=%d | anclajes1m=%d anclajes5m=%d exp5m=%d | W/L=%d/%d rachaPerd=%d | sinNivel=%.0fs sesión=%.0fs",
+			"[Rec][%s] SNAP nv=%d XP=%.0f%% monedas=%d (rango %d-%d) MultiXP=x%.2f clicks=%d walk=%d vel=%d | anclajes1m=%d anclajes5m=%d exp5m=%d | W/L=%d/%d rachaPerd=%d | sinNivel=%.0fs sesión=%.0fs",
 			player.Name, snap.nivel, snap.xpFrac*100, snap.monedas, snap.minR, snap.maxR, snap.multiXP, snap.clicks, snap.walk, snap.vel,
 			snap.anchors1m or 0, snap.anchors5m or 0, snap.expulsions5m or 0, snap.wins, snap.losses, snap.streakLosses or 0,
 			snap.sinNivel, snap.session
@@ -139,7 +139,7 @@ function ctx.enviarRecomendacion(player)
 		NotificarCliente:FireClient(player, {
 			tipo = "promo_smart",
 			accion = "rebirth",
-			titulo = rec.titulo or "♻️ REBIRTH",
+			titulo = rec.titulo or "REBIRTH",
 			label = rec.label or "Reinicia con ventajas permanentes",
 			razon = rec.razon,
 			score = rec.score,
@@ -153,7 +153,7 @@ function ctx.enviarRecomendacion(player)
 			productId = rec.productId,
 			precioFallback = rec.tier and rec.tier.precio,
 			label = rec.tier and rec.tier.label,
-			titulo = (rec.track and rec.track.emoji or "💎") .. " " .. (rec.track and rec.track.titulo or "Oferta"),
+			titulo = (rec.track and rec.track.titulo or "Oferta"),
 			razon = rec.razon,
 			tiersTotal = rec.track and #rec.track.tiers or 1,
 			score = rec.score,

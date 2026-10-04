@@ -1034,3 +1034,23 @@ El código, el balance y la interfaz siguen evolucionando.
 Roblox · Luau · Rojo
 
 </div>
+
+## Tutorial (primer jugador)
+
+- **Interactivo**: el jugador abre Tienda, ve pestañas Poder/Movimiento, reclama Diario, reta bot nv1, hace Triki Traka y ve subir la XP.
+- **Bienvenida**: explica el bucle de juego (no el tutorial).
+- **Omitir**: siempre visible; quita restricciones y protección larga.
+- **Protección**: mientras dura, otros no pueden anclarse ni retar al jugador.
+- **Diario**: hay que reclamar; al **completar** el tutorial se aplica `Config.TUTORIAL.POST_PROTECTION_S` (60 s) si se reclamó en el tutorial.
+- **Retar en tutorial**: solo bots nivel 1; después solo jugadores.
+- UI centrada abajo, altura automática (`AutomaticSize`).
+
+Archivos: `init.client.lua` (UI), `Mod2` (estado/protección), `Context` (remotes), `Config.TUTORIAL`.
+
+## Estadísticas
+
+- Botón lateral (icono `Config.ICONS.stats`, sustituible).
+- Panel con nivel, XP, monedas, XP/tick e intervalo Triki Traka, clicks, multis, Rebirth, niveles hasta Rebirth, **Nivel conseguido** (histórico), victorias.
+- No forma parte del tutorial.
+- Actualización periódica mientras el panel está abierto.
+

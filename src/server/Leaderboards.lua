@@ -27,14 +27,13 @@ return function(ctx)
 	local defaultFace = FACE_MAP[cfg.Face or "Back"] or Enum.NormalId.Back
 
 	local TRACKED = {
-		NivelConseguido = true,
+		XPTotal = true,
 		Monedas = true,
 		Rebirths = true,
 		Victorias = true,
 	}
-	-- Sin debounce (escritura inmediata)
 	local IMMEDIATE = {
-		NivelConseguido = true,
+		XPTotal = true,
 		Rebirths = true,
 		Victorias = true,
 	}
@@ -75,12 +74,18 @@ return function(ctx)
 			end)
 			if ok and store then
 				orderedStores[def.stat] = store
-				print("[Leaderboards] ODS OK:", storeName)
+				print("[Leaderboards] ODS OK:", storeName, "stat=", def.stat)
 			else
 				warn("[Leaderboards] ODS error:", storeName, store)
 			end
 		end
 	end
+	do
+		local keys = {}
+		for k in pairs(orderedStores) do table.insert(keys, k) end
+		print("[Leaderboards] Stats con ODS:", table.concat(keys, ", "))
+	end
+
 
 	local function formatNum(n)
 		n = math.floor(tonumber(n) or 0)
@@ -97,13 +102,20 @@ return function(ctx)
 		return tostring(n)
 	end
 
-	local function findPart(name)
-		if typeof(name) ~= "string" or name == "" then
+	local function findPart(name, altNames)
+		local function try(n)
+			if typeof(n) ~= "string" or n == "" then return nil end
+			local p = Workspace:FindFirstChild(n, true)
+			if p and p:IsA("BasePart") then return p end
 			return nil
 		end
-		local p = Workspace:FindFirstChild(name, true)
-		if p and p:IsA("BasePart") then
-			return p
+		local p = try(name)
+		if p then return p end
+		if typeof(altNames) == "table" then
+			for _, n in ipairs(altNames) do
+				p = try(n)
+				if p then return p end
+			end
 		end
 		return nil
 	end
@@ -175,9 +187,10 @@ return function(ctx)
 			end
 		end
 		local ok, err = pcall(function()
-			local old = store:GetAsync(key)
-			old = tonumber(old) or 0
-			if value >= old then
+			local prev = store:GetAsync(key)
+			prev = tonumber(prev) or 0
+			-- Solo subir (o forzar en victorias/rebirths/nivel)
+			if force or value >= prev then
 				store:SetAsync(key, value)
 			end
 		end)
@@ -275,7 +288,7 @@ return function(ctx)
 	local function ensureBoard(def)
 		local id = def.id or def.partName
 		local existing = boards[id]
-		local part = findPart(def.partName)
+		local part = findPart(def.partName, def.altPartNames)
 		if not part then
 			boards[id] = nil
 			return nil
@@ -461,4 +474,9 @@ return function(ctx)
 	end)
 
 	print("[Leaderboards] Global ODS — face=", cfg.Face or "Back", "boards=", #boardsCfg)
+
+	
+
+
+
 end

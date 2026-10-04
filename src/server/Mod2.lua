@@ -151,6 +151,33 @@ Players.PlayerAdded:Connect(function(player)
 		})
 	end)
 
+	-- Tutorial first-time
+	do
+		local done = false
+		if datos and datos.TutorialDone == true then
+			done = true
+		elseif datos and datos.TutorialDone == false then
+			done = false
+		elseif datos then
+			local n = datos.Nivel or 1
+			local r = datos.Rebirths or 0
+			local m = datos.Monedas or 0
+			local v = datos.Victorias or 0
+			if n > 1 or r > 0 or m > 50 or v > 0 then
+				done = true
+			end
+		end
+		ctx.tutorialDone[player] = done
+		task.defer(function()
+			task.wait(1.5)
+			if not player.Parent then return end
+			if ctx.TutorialSync then
+				ctx.TutorialSync:FireClient(player, { show = not done })
+			end
+		end)
+	end
+
+
 	player.CharacterAdded:Connect(function(char)
 		ctx.onCharacterAdded(player, char)
 	end)
@@ -169,6 +196,7 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 Players.PlayerRemoving:Connect(function(player)
+	ctx.tutorialActive[player] = nil
 	ctx.guardarDatos(player)
 	ctx.desanclar(player)
 	if ancladosEn[player] then
@@ -291,11 +319,11 @@ ExpulsionAccion.OnServerEvent:Connect(function(player, accion, valor)
 		end
 		local dinero = ses.dinero or Config.EXPULSION.DINERO_MINIMO
 		if dinero < Config.EXPULSION.DINERO_MINIMO then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Mínimo " .. Config.EXPULSION.DINERO_MINIMO .. " 💰" })
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Mínimo " .. Config.EXPULSION.DINERO_MINIMO .. " monedas" })
 			return
 		end
 		if ctx.getStat(player, "Monedas") < dinero then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. dinero .. " 💰" })
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. dinero .. " monedas" })
 			return
 		end
 
@@ -340,7 +368,7 @@ ExpulsionAccion.OnServerEvent:Connect(function(player, accion, valor)
 					cooldownReanclar[ck][anclado] = tick() + Config.COOLDOWN_REANCLAR
 				end
 				expulsionSessions[player] = nil
-				NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡EXPULSIÓN EXITOSA! (-" .. ses.dineroGastado .. " 💰)" })
+				NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "¡EXPULSIÓN EXITOSA! (-" .. ses.dineroGastado .. " monedas)" })
 				NotificarCliente:FireClient(anclado, { tipo = "expulsado", mensaje = player.Name .. " te expulsó" })
 				ExpulsionUpdate:FireClient(player, { activo = false, resultado = "exito", prob = info.probabilidad })
 				ExpulsionUpdate:FireClient(anclado, { activo = false, resultado = "exito" })
@@ -419,7 +447,7 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 	if anti then
 		local coste = Config.getPrecioAnti(anti, nivel, rebirths)
 		if ctx.getStat(player, "Monedas") < coste then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " 💰" })
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " monedas" })
 			return
 		end
 		ctx.agregarMonedas(player, -coste)
@@ -435,7 +463,7 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 		local mins = math.floor(anti.segundos / 60)
 		NotificarCliente:FireClient(player, {
 			tipo = "exito",
-			mensaje = "¡" .. anti.nombre .. "! +" .. mins .. " min (-" .. coste .. " 💰)"
+			mensaje = "¡" .. anti.nombre .. "! +" .. mins .. " min (-" .. coste .. " monedas)"
 		})
 		return
 	end
@@ -451,14 +479,14 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 		end
 		local coste = Config.getPrecioClicks(pack, nivel, actualClicks, rebirths)
 		if ctx.getStat(player, "Monedas") < coste then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " 💰" })
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " monedas" })
 			return
 		end
 		ctx.agregarMonedas(player, -coste)
 		ctx.setStat(player, "ClicksPorClick", actualClicks + pack.cantidad)
 		NotificarCliente:FireClient(player, {
 			tipo = "exito",
-			mensaje = "¡" .. pack.nombre .. "! Ahora " .. (actualClicks + pack.cantidad) .. " (-" .. coste .. " 💰)"
+			mensaje = "¡" .. pack.nombre .. "! Ahora " .. (actualClicks + pack.cantidad) .. " (-" .. coste .. " monedas)"
 		})
 		return
 	end
@@ -475,7 +503,7 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 		end
 		local coste = Config.getPrecioVelocidad(vel, nivel, actualVel, rebirths)
 		if ctx.getStat(player, "Monedas") < coste then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " 💰" })
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " monedas" })
 			return
 		end
 		ctx.agregarMonedas(player, -coste)
@@ -484,7 +512,7 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 		local intervalo = Config.getIntervaloAnclaje(nuevo)
 		NotificarCliente:FireClient(player, {
 			tipo = "exito",
-			mensaje = "¡" .. vel.nombre .. "! Intervalo " .. string.format("%.2f", intervalo) .. "s (-" .. coste .. " 💰)"
+			mensaje = "¡" .. vel.nombre .. "! Intervalo " .. string.format("%.2f", intervalo) .. "s (-" .. coste .. " monedas)"
 		})
 		return
 	end
@@ -500,7 +528,7 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 		end
 		local coste = Config.getPrecioWalk(walk, nivel, actualWalk, rebirths)
 		if ctx.getStat(player, "Monedas") < coste then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " 💰" })
+			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Necesitas " .. coste .. " monedas" })
 			return
 		end
 		ctx.agregarMonedas(player, -coste)
@@ -511,7 +539,7 @@ ComprarMejora.OnServerEvent:Connect(function(player, productId)
 		end
 		NotificarCliente:FireClient(player, {
 			tipo = "exito",
-			mensaje = "¡" .. walk.nombre .. "! WalkSpeed " .. string.format("%.1f", Config.getWalkSpeed(nuevo)) .. " (-" .. coste .. " 💰)"
+			mensaje = "¡" .. walk.nombre .. "! WalkSpeed " .. string.format("%.1f", Config.getWalkSpeed(nuevo)) .. " (-" .. coste .. " monedas)"
 		})
 		return
 	end
@@ -528,9 +556,11 @@ HacerRebirth.OnServerEvent:Connect(function(player)
 	ctx.setStat(player, "Nivel", 1)
 	ctx.setStat(player, "XP", Config.XP_INICIAL)
 	ctx.setStat(player, "MaxXP", ctx.getMaxXP(1))
+	-- Solo se reinician mejoras compradas con monedas (no Robux)
 	ctx.setStat(player, "ClicksPorClick", 1)
 	ctx.setStat(player, "VelocidadAnclaje", 0)
 	ctx.setStat(player, "VelocidadMovimiento", 0)
+	-- ClicksRobux / VelocidadAnclajeRobux / VelocidadMovimientoRobux se conservan
 	ctx.aplicarEstadoLibre(player)
 
 	local rebirths = ctx.getStat(player, "Rebirths") + 1
@@ -607,6 +637,32 @@ function ctx.calcularClicksBot(nivelBot, _player)
 	return Config.calcularClicksBot(nivelBot, 1)
 end
 
+
+function ctx.iniciarDueloBot(player, modelo)
+	if not player or not modelo then return false end
+	if duelosActivos[player] then
+		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Ya estás en un duelo" })
+		return false
+	end
+	if ancladoA[player] then
+		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "No puedes retar mientras estás anclado" })
+		return false
+	end
+	local nivelBot = ctx.extraerNivelBot(modelo.Name)
+	local clicksMinimos = ctx.calcularClicksBot(nivelBot, player)
+	duelosActivos[player] = {
+		oponente = nil,
+		esBot = true,
+		nivelBot = nivelBot,
+		clicksMinimos = clicksMinimos,
+		clicks = 0,
+		listo = false,
+	}
+	IniciarMinijuego:FireClient(player, true, nivelBot, clicksMinimos)
+	return true
+end
+
+
 function ctx.configurarBot(modelo)
 	if not modelo or not modelo.Parent then return false end
 	if not ctx.esBotInstancia(modelo) then return false end
@@ -668,25 +724,7 @@ function ctx.configurarBot(modelo)
 
 	prompt.Triggered:Connect(function(player)
 		if not player or not player:IsA("Player") then return end
-		if duelosActivos[player] then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Ya estás en un duelo" })
-			return
-		end
-		if ancladoA[player] then
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "No puedes retar mientras estás anclado" })
-			return
-		end
-
-		local clicksMinimos = ctx.calcularClicksBot(nivelBot, player)
-		duelosActivos[player] = {
-			oponente = nil,
-			esBot = true,
-			nivelBot = nivelBot,
-			clicksMinimos = clicksMinimos,
-			clicks = 0,
-			listo = false,
-		}
-		IniciarMinijuego:FireClient(player, true, nivelBot, clicksMinimos)
+		ctx.iniciarDueloBot(player, modelo)
 	end)
 
 	botsConfigurados[modelo] = true
@@ -711,5 +749,109 @@ function ctx.escanearBots()
 	print("[Bots] Escaneo terminado. Configurados en esta pasada / total tags:", count)
 end
 
+-- Tutorial complete / skip / started
+if ctx.TutorialAction then
+	ctx.TutorialAction.OnServerEvent:Connect(function(player, action)
+		if typeof(action) ~= "string" then return end
+		if action == "complete" or action == "skip" then
+			ctx.tutorialDone[player] = true
+			ctx.tutorialActive[player] = nil
+			local ahora = tick()
+			local longProtect = antiAnclajeHasta[player] and antiAnclajeHasta[player] > ahora + 1000
+			local claimedDaily = ctx.tutorialDailyClaimed and ctx.tutorialDailyClaimed[player]
+			if ctx.tutorialDailyClaimed then
+				ctx.tutorialDailyClaimed[player] = nil
+			end
+			if action == "complete" and claimedDaily then
+				local secs = (Config.TUTORIAL and Config.TUTORIAL.POST_PROTECTION_S) or 60
+				antiAnclajeHasta[player] = ahora + secs
+			elseif longProtect then
+				antiAnclajeHasta[player] = nil
+			end
+			if ctx.syncProteccionCliente then
+				pcall(function() ctx.syncProteccionCliente(player) end)
+			end
+			ctx.guardarDatos(player)
+			if ctx.TutorialSync then
+				ctx.TutorialSync:FireClient(player, { show = false, ended = true })
+			end
+			return
+		end
+		if action == "started" then
+			ctx.tutorialActive[player] = true
+			antiAnclajeHasta[player] = tick() + 86400
+			if ctx.syncProteccionCliente then
+				pcall(function() ctx.syncProteccionCliente(player) end)
+			end
+			return
+		end
+		if action == "step" then
+			return
+		end
+	end)
+end
+
+
+-- Stats extra (ranks) + reinicio de progreso
+do
+	local PedirStatsExtra = ctx.PedirStatsExtra
+	local StatsExtra = ctx.StatsExtra
+	local ReiniciarProgreso = ctx.ReiniciarProgreso
+	local NotificarCliente = ctx.NotificarCliente
+	local antiAnclajeHasta = ctx.antiAnclajeHasta
+
+	if PedirStatsExtra and StatsExtra then
+		PedirStatsExtra.OnServerEvent:Connect(function(player)
+			if not player or not player.Parent then return end
+			local protLeft = 0
+			if antiAnclajeHasta[player] then
+				protLeft = math.max(0, antiAnclajeHasta[player] - tick())
+			end
+			StatsExtra:FireClient(player, {
+				proteccionRestante = protLeft,
+			})
+		end)
+	end
+
+	if ReiniciarProgreso then
+		ReiniciarProgreso.OnServerEvent:Connect(function(player)
+			if not player or not player.Parent then return end
+			-- Desanclar si aplica
+			if ctx.desanclar then
+				pcall(function() ctx.desanclar(player) end)
+			end
+			ctx.setStat(player, "Nivel", 1)
+			ctx.setStat(player, "XP", Config.XP_INICIAL or 50)
+			ctx.setStat(player, "MaxXP", ctx.getMaxXP(1))
+			ctx.setStat(player, "Monedas", 0)
+			ctx.setStat(player, "Rebirths", 0)
+			ctx.setStat(player, "Victorias", 0)
+			ctx.setStat(player, "NivelConseguido", 1)
+			ctx.setStat(player, "XPTotal", 0)
+			ctx.setStat(player, "ClicksPorClick", 1)
+			ctx.setStat(player, "ClicksRobux", 0)
+			ctx.setStat(player, "VelocidadAnclaje", 0)
+			ctx.setStat(player, "VelocidadAnclajeRobux", 0)
+			ctx.setStat(player, "VelocidadMovimiento", 0)
+			ctx.setStat(player, "VelocidadMovimientoRobux", 0)
+			ctx.setStat(player, "MultiXP", 1)
+			ctx.setStat(player, "MultiClicks", 1)
+			antiAnclajeHasta[player] = nil
+			if ctx.syncProteccionCliente then
+				ctx.syncProteccionCliente(player)
+			end
+			if ctx.aplicarEstadoLibre then
+				ctx.aplicarEstadoLibre(player)
+			end
+			if ctx.guardarDatos then
+				pcall(function() ctx.guardarDatos(player) end)
+			end
+			NotificarCliente:FireClient(player, { tipo = "exito", mensaje = "Progreso reiniciado" })
+			if StatsExtra then
+				StatsExtra:FireClient(player, { ranks = {}, proteccionRestante = 0, reset = true })
+			end
+		end)
+	end
+end
 
 end

@@ -84,7 +84,18 @@ local ICONS = {
 	check = "rbxassetid://128258429125931",
 	error = "rbxassetid://71459806238689",
 	estrella = "rbxassetid://126056857452190",
+	stats = "rbxassetid://110436511784004",
 }
+
+if Config and Config.ICONS then
+	for k, v in pairs(Config.ICONS) do
+		if typeof(v) == "string" and v ~= "" and v ~= "rbxassetid://0" then
+			ICONS[k] = v
+		elseif typeof(v) == "string" and ICONS[k] == nil then
+			ICONS[k] = v
+		end
+	end
+end
 
 -- Decal (AssetType 13) no renderiza en ImageLabel; rbxthumb sí funciona con esos IDs
 local function normalizeAsset(id)
@@ -186,7 +197,15 @@ local ExpulsionAccion      = waitRemote("ExpulsionAccion")
 local ExpulsionDefensa     = waitRemote("ExpulsionDefensa")
 local ClaimDaily           = waitRemote("ClaimDaily")
 local SyncDaily            = waitRemote("SyncDaily")
+local TutorialSync         = waitRemote("TutorialSync")
+local TutorialAction       = waitRemote("TutorialAction")
+local PedirStatsExtra       = waitRemote("PedirStatsExtra")
+local StatsExtra            = waitRemote("StatsExtra")
+local ReiniciarProgreso     = waitRemote("ReiniciarProgreso")
 print("[AuraUI] Remotes listos")
+
+-- Flag tutorial (debe existir antes de actualizarLista)
+local tutorialActive = false
 
 pcall(function()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
@@ -672,8 +691,8 @@ ancladoLbl.Parent = ancladoPill
 -- =====================================================
 local sidePanel = Instance.new("Frame")
 sidePanel.Name = "SideButtons"
-sidePanel.Size = UDim2.new(0, 56, 0, 280)
-sidePanel.Position = UDim2.new(0, 12, 0.5, -140)
+sidePanel.Size = UDim2.new(0, 56, 0, 340)
+sidePanel.Position = UDim2.new(0, 12, 0.5, -170)
 sidePanel.BackgroundTransparency = 1
 sidePanel.ZIndex = 15
 sidePanel.Parent = screenGui
@@ -693,7 +712,10 @@ local function crearBotonIcono(iconAsset, order, accent)
 	b.ZIndex = 16
 	b.Parent = sidePanel
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 12)
-	goldStroke(b, 2)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = accent or TEMA.oro
+	stroke.Thickness = 2
+	stroke.Parent = b
 	setButtonIcon(b, iconAsset, 11)
 	b.MouseEnter:Connect(function()
 		b.BackgroundColor3 = Color3.fromRGB(45, 50, 68)
@@ -704,11 +726,43 @@ local function crearBotonIcono(iconAsset, order, accent)
 	return b
 end
 
-local btnRetar     = crearBotonIcono(ICONS.retar, 1)
-local btnTienda    = crearBotonIcono(ICONS.tienda, 2)
-local btnDaily     = crearBotonIcono(ICONS.daily, 3)
-local btnDesanclar = crearBotonIcono(ICONS.desanclar, 4)
+local btnRetar     = crearBotonIcono(ICONS.retar, 1, TEMA.rojo)
+local btnTienda    = crearBotonIcono(ICONS.tienda, 2, TEMA.naranja)
+local btnDaily     = crearBotonIcono(ICONS.daily, 3, TEMA.morado)
+local btnStats     = crearBotonIcono(ICONS.stats or ICONS.estrella, 4, Color3.fromRGB(80, 200, 220))
+btnStats.Name = "BtnStats"
+btnStats.Visible = true
+btnStats.Active = true
+btnStats.BackgroundColor3 = Color3.fromRGB(22, 36, 42)
+do
+	local st = btnStats:FindFirstChildOfClass("UIStroke")
+	if not st then
+		st = Instance.new("UIStroke")
+		st.Parent = btnStats
+	end
+	st.Color = Color3.fromRGB(80, 200, 220)
+	st.Thickness = 2.5
+end
+btnStats.MouseButton1Click:Connect(function()
+	local so = screenGui:FindFirstChild("MenuStats")
+	if not so then
+		warn("[AuraUI] MenuStats no encontrado")
+		return
+	end
+	local open = not so.Visible
+	so.Visible = open
+	if open then
+		if menuTienda then menuTienda.Visible = false end
+		if menuRetos then menuRetos.Visible = false end
+		menuAbierto = false
+		if dailyFrame then dailyFrame.Visible = false end
+		so:SetAttribute("OpenTick", tick())
+		if abrirStats then abrirStats(true) end
+	end
+end)
+local btnDesanclar = crearBotonIcono(ICONS.desanclar, 5, Color3.fromRGB(139, 90, 43))
 btnDesanclar.Visible = false
+print("[AuraUI] BtnStats listo (conexión temprana)")
 
 btnDesanclar.MouseButton1Click:Connect(function()
 	if DesanclarJugador then DesanclarJugador:FireServer() end
@@ -717,12 +771,25 @@ btnDesanclar.MouseButton1Click:Connect(function()
 end)
 
 local function cerrarMenusLaterales()
-	menuRetos.Visible = false
+	local so = screenGui:FindFirstChild("MenuStats")
+	if so then so.Visible = false end
+	if menuRetos then menuRetos.Visible = false end
+	if menuTienda then menuTienda.Visible = false end
 	menuAbierto = false
 	if dailyFrame then dailyFrame.Visible = false end
 end
 
 
+-- UI compartida (hoisted para scopes de setup*)
+local menuRetos
+local menuTienda
+local listaRetos
+local scrollRetos
+local actualizarLista
+local tiendaMostrar
+local abrirStats
+
+local function setupMenuRetar()
 -- =====================================================
 -- MENÚ RETAR PANEL (Trike Arcade)
 -- =====================================================
@@ -770,25 +837,29 @@ retosCerrar.MouseButton1Click:Connect(function()
 	menuAbierto = false
 end)
 
-local scroll = Instance.new("ScrollingFrame")
-scroll.Size = UDim2.new(1, -16, 1, -56)
-scroll.Position = UDim2.new(0, 8, 0, 48)
-scroll.BackgroundTransparency = 1
-scroll.ScrollBarThickness = 4
-scroll.ScrollBarImageColor3 = TEMA.oro
-scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-scroll.BorderSizePixel = 0
-scroll.ZIndex = 32
-scroll.Parent = menuRetosInner
+local scrollRetos = Instance.new("ScrollingFrame")
+scrollRetos.Size = UDim2.new(1, -16, 1, -56)
+scrollRetos.Position = UDim2.new(0, 8, 0, 48)
+scrollRetos.BackgroundTransparency = 1
+scrollRetos.ScrollBarThickness = 4
+scrollRetos.ScrollBarImageColor3 = TEMA.oro
+scrollRetos.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollRetos.BorderSizePixel = 0
+scrollRetos.ZIndex = 32
+scrollRetos.Parent = menuRetosInner
 do
 	local lay = Instance.new("UIListLayout")
 	lay.Padding = UDim.new(0, 6)
 	lay.SortOrder = Enum.SortOrder.LayoutOrder
-	lay.Parent = scroll
+	lay.Parent = scrollRetos
 end
 
-local menuRetos = menuRetosOuter
+menuRetos = menuRetosOuter
 
+end
+setupMenuRetar()
+
+local function setupTienda()
 -- =====================================================
 -- TIENDA (Trike Arcade)
 -- =====================================================
@@ -868,7 +939,7 @@ scrollTienda.ZIndex = 32
 scrollTienda.ClipsDescendants = true
 scrollTienda.Parent = menuTiendaInner
 
-local menuTienda = menuTiendaOuter
+menuTienda = menuTiendaOuter
 
 local pageHolder = Instance.new("Folder")
 pageHolder.Name = "TiendaPages"
@@ -906,7 +977,7 @@ local function pageOf(tab)
 	return tiendaPages[tab or "Robux"] or tiendaPages.Robux
 end
 
-local function tiendaMostrar(tab)
+tiendaMostrar = function(tab)
 	tiendaTabActual = tab or "Robux"
 	for name, page in pairs(tiendaPages) do
 		if name == tiendaTabActual then
@@ -1277,108 +1348,178 @@ end
 tiendaMostrar("Robux")
 
 btnTienda.MouseButton1Click:Connect(function()
+	if not menuTienda then return end
 	local open = not menuTienda.Visible
 	menuTienda.Visible = open
-	menuRetos.Visible = false
+	if menuRetos then menuRetos.Visible = false end
 	menuAbierto = false
 	if dailyFrame then dailyFrame.Visible = false end
+	local so = screenGui:FindFirstChild("MenuStats")
+	if so then so.Visible = false end
 	if open then actualizarPreciosTienda() end
 end)
 
+end
+setupTienda()
+
+local function setupListaRetar()
 -- =====================================================
 -- MENÚ RETAR — lista de jugadores
 -- =====================================================
 menuAbierto = false
 local retoCooldownHasta = 0
-local function actualizarLista()
-	for _, c in ipairs(scroll:GetChildren()) do
+actualizarLista = function()
+	if not scrollRetos then return end
+	for _, c in ipairs(scrollRetos:GetChildren()) do
 		if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
 			c:Destroy()
 		end
 	end
 	local count = 0
-	for _, pl in ipairs(Players:GetPlayers()) do
-		if pl ~= player then
-			count += 1
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, -8, 0, 52)
-			row.BackgroundColor3 = Color3.fromRGB(28, 30, 42)
-			row.ZIndex = 33
-			row.LayoutOrder = count
-			row.Parent = scroll
-			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
-			goldStroke(row, 1)
-			iconImg(row, ICONS.retar, UDim2.new(0, 22, 0, 22), UDim2.new(0, 10, 0.5, -11))
-			local nv = 1
-			local ls = pl:FindFirstChild("leaderstats")
-			if ls and ls:FindFirstChild("Nivel") then nv = ls.Nivel.Value end
-			local name = Instance.new("TextLabel")
-			name.Size = UDim2.new(1, -100, 0, 22)
-			name.Position = UDim2.new(0, 40, 0, 6)
-			name.BackgroundTransparency = 1
-			name.Font = Enum.Font.GothamBold
-			name.TextSize = 14
-			name.TextColor3 = TEMA.texto
-			name.TextXAlignment = Enum.TextXAlignment.Left
-			name.TextTruncate = Enum.TextTruncate.AtEnd
-			name.Text = pl.DisplayName or pl.Name
-			name.ZIndex = 34
-			name.Parent = row
-			local sub = Instance.new("TextLabel")
-			sub.Size = UDim2.new(1, -100, 0, 16)
-			sub.Position = UDim2.new(0, 40, 0, 28)
-			sub.BackgroundTransparency = 1
-			sub.Font = Enum.Font.Gotham
-			sub.TextSize = 12
-			sub.TextColor3 = TEMA.muted or TEMA.textoSuave
-			sub.TextXAlignment = Enum.TextXAlignment.Left
-			sub.Text = "NV " .. tostring(nv)
-			sub.ZIndex = 34
-			sub.Parent = row
-			local btn = Instance.new("TextButton")
-			btn.Size = UDim2.new(0, 52, 0, 32)
-			btn.Position = UDim2.new(1, -60, 0.5, -16)
-			btn.BackgroundColor3 = TEMA.rojo
-			btn.Font = Enum.Font.GothamBlack
-			btn.TextSize = 12
-			btn.TextColor3 = Color3.new(1, 1, 1)
-			btn.Text = "Retar"
-			btn.ZIndex = 35
-			btn.Parent = row
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-			local targetId = pl.UserId
-			btn.MouseButton1Click:Connect(function()
-				if tick() < retoCooldownHasta then return end
-				retoCooldownHasta = tick() + 1.5
-				if SolicitarDueloDirecto then
-					SolicitarDueloDirecto:FireServer(targetId)
+
+	local function addRow(displayName, subText, iconAsset, onRetar, highlight)
+		count = count + 1
+		local row = Instance.new("Frame")
+		row.Size = UDim2.new(1, -8, 0, 52)
+		row.BackgroundColor3 = highlight and Color3.fromRGB(40, 36, 28) or Color3.fromRGB(28, 30, 42)
+		row.ZIndex = 33
+		row.LayoutOrder = count
+		row.Parent = scrollRetos
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+		goldStroke(row, highlight and 2 or 1)
+		iconImg(row, iconAsset or ICONS.retar, UDim2.new(0, 22, 0, 22), UDim2.new(0, 10, 0.5, -11))
+		local name = Instance.new("TextLabel")
+		name.Size = UDim2.new(1, -100, 0, 22)
+		name.Position = UDim2.new(0, 40, 0, 6)
+		name.BackgroundTransparency = 1
+		name.Font = Enum.Font.GothamBold
+		name.TextSize = 14
+		name.TextColor3 = TEMA.texto
+		name.TextXAlignment = Enum.TextXAlignment.Left
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.Text = displayName
+		name.ZIndex = 34
+		name.Parent = row
+		local sub = Instance.new("TextLabel")
+		sub.Size = UDim2.new(1, -100, 0, 16)
+		sub.Position = UDim2.new(0, 40, 0, 28)
+		sub.BackgroundTransparency = 1
+		sub.Font = Enum.Font.Gotham
+		sub.TextSize = 12
+		sub.TextColor3 = TEMA.muted or TEMA.textoSuave
+		sub.TextXAlignment = Enum.TextXAlignment.Left
+		sub.Text = subText
+		sub.ZIndex = 34
+		sub.Parent = row
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0, 52, 0, 32)
+		btn.Position = UDim2.new(1, -60, 0.5, -16)
+		btn.BackgroundColor3 = TEMA.rojo
+		btn.Font = Enum.Font.GothamBlack
+		btn.TextSize = 12
+		btn.TextColor3 = Color3.new(1, 1, 1)
+		btn.Text = "Retar"
+		btn.ZIndex = 35
+		btn.Parent = row
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+		if highlight then
+			local st = Instance.new("UIStroke")
+			st.Color = TEMA.oro
+			st.Thickness = 2
+			st.Parent = btn
+			local tip = Instance.new("TextLabel")
+			tip.Size = UDim2.new(0, 70, 0, 16)
+			tip.Position = UDim2.new(1, -70, 0, -14)
+			tip.BackgroundTransparency = 1
+			tip.Font = Enum.Font.GothamBlack
+			tip.TextSize = 11
+			tip.TextColor3 = TEMA.oro
+			tip.Text = "Pulsa aquí"
+			tip.ZIndex = 36
+			tip.Parent = row
+		end
+		btn.MouseButton1Click:Connect(function()
+			if tick() < retoCooldownHasta then return end
+			retoCooldownHasta = tick() + 1.5
+			onRetar(btn)
+			btn.Text = "..."
+			btn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+			task.delay(1.5, function()
+				if btn and btn.Parent then
+					btn.Text = "Retar"
+					btn.BackgroundColor3 = TEMA.rojo
 				end
-				btn.Text = "..."
-				btn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-				task.delay(1.5, function()
-					if btn and btn.Parent then
-						btn.Text = "Retar"
-						btn.BackgroundColor3 = TEMA.rojo
-					end
-				end)
 			end)
+		end)
+	end
+
+	if tutorialActive then
+		-- Solo bots de batalla nivel 1 (aprender a retar)
+		local seen = {}
+		local function tryAddBot(inst)
+			if not inst or not inst:IsA("Model") or seen[inst] then return end
+			if not inst.Parent then return end
+			local prompt = inst:FindFirstChild("PromptBot", true)
+			local nameL = string.lower(inst.Name)
+			local looksBot = prompt ~= nil or nameL:find("bot") ~= nil
+			if not looksBot then return end
+			local nv = tonumber(string.match(inst.Name, "%d+"))
+			local attrNv = prompt and tonumber(prompt:GetAttribute("NivelBot"))
+			local nivel = nv or attrNv or 0
+			-- aceptar nivel 1; si no hay número pero tiene PromptBot y el nombre sugiere nivel 1
+			if nivel ~= 1 then
+				if nameL:find("nivel1") or nameL:find("level1") or nameL:find("_1") or nameL:find("nv1") then
+					nivel = 1
+				else
+					return
+				end
+			end
+			seen[inst] = true
+			local botName = inst.Name
+			addRow(botName, "BOT · NV 1 · tutorial", ICONS.bot or ICONS.retar, function()
+				if SolicitarDueloDirecto then
+					SolicitarDueloDirecto:FireServer(botName)
+				end
+			end, true)
+		end
+		for _, inst in ipairs(workspace:GetChildren()) do
+			tryAddBot(inst)
+		end
+		for _, inst in ipairs(workspace:GetDescendants()) do
+			tryAddBot(inst)
+		end
+	else
+		-- Solo jugadores reales
+		for _, pl in ipairs(Players:GetPlayers()) do
+			if pl ~= player then
+				local nv = 1
+				local ls = pl:FindFirstChild("leaderstats")
+				if ls and ls:FindFirstChild("Nivel") then nv = ls.Nivel.Value end
+				local uid = pl.UserId
+				addRow(pl.DisplayName or pl.Name, "NV " .. tostring(nv), ICONS.retar, function()
+					if SolicitarDueloDirecto then
+						SolicitarDueloDirecto:FireServer(uid)
+					end
+				end, false)
+			end
 		end
 	end
+
 	if count == 0 then
 		local empty = Instance.new("TextLabel")
-		empty.Size = UDim2.new(1, -16, 0, 60)
+		empty.Size = UDim2.new(1, -8, 0, 40)
 		empty.BackgroundTransparency = 1
 		empty.Font = Enum.Font.Gotham
-		empty.TextSize = 14
+		empty.TextSize = 13
 		empty.TextColor3 = TEMA.muted or TEMA.textoSuave
-		empty.Text = "No hay jugadores.\nReta bots en el mapa."
 		empty.TextWrapped = true
 		empty.ZIndex = 34
-		empty.Parent = scroll
+		empty.Text = tutorialActive and "No hay bots nivel 1 en el mapa (coloca bot_Nivel1)" or "No hay jugadores"
+		empty.Parent = scrollRetos
 	end
-	local lay = scroll:FindFirstChildOfClass("UIListLayout")
+	local lay = scrollRetos:FindFirstChildOfClass("UIListLayout")
 	if lay then
-		scroll.CanvasSize = UDim2.new(0, 0, 0, lay.AbsoluteContentSize.Y + 12)
+		scrollRetos.CanvasSize = UDim2.new(0, 0, 0, lay.AbsoluteContentSize.Y + 12)
 	end
 end
 
@@ -1387,9 +1528,15 @@ btnRetar.MouseButton1Click:Connect(function()
 	menuRetos.Visible = menuAbierto
 	menuTienda.Visible = false
 	if dailyFrame then dailyFrame.Visible = false end
+	local so = screenGui:FindFirstChild("MenuStats")
+	if so then so.Visible = false end
 	if menuAbierto then actualizarLista() end
 end)
 
+end
+setupListaRetar()
+
+local function setupNotifHandlers()
 -- =====================================================
 -- NOTIFICACIONES SERVIDOR
 -- =====================================================
@@ -1463,11 +1610,10 @@ if NotificarCliente then
 		elseif data.tipo == "te_anclaron" then
 			-- UI de expulsión vía ExpulsionUpdate
 		elseif data.tipo == "error" then
-			-- menos ruido: solo avisos accionables / bloqueantes
 			local msg = tostring(data.mensaje or "")
+			-- Silenciar solo ruido de tienda; protección/cooldown SÍ se muestran
 			local soft = {
-				"nivel insuficiente", "no tienes", "cooldown", "ya reclamaste",
-				"no disponible", "espera", "proteccion", "protección",
+				"nivel insuficiente", "no tienes suficiente", "ya reclamaste",
 			}
 			local lower = string.lower(msg)
 			local isSoft = false
@@ -1475,9 +1621,8 @@ if NotificarCliente then
 				if string.find(lower, k, 1, true) then isSoft = true break end
 			end
 			if msg ~= "" and not isSoft then
-				crearNotificacion("Aviso", msg)
+				crearNotificacion("Aviso", msg, nil, false, ICONS.error)
 			end
-			-- soft: silencioso (el botón de la tienda ya muestra estado)
 		elseif data.tipo == "exito" then
 			crearNotificacion("Listo", data.mensaje or "")
 		elseif data.tipo == "alguien_desanclado" then
@@ -1616,7 +1761,7 @@ if MostrarResultados then
 			centroTexto.TextColor3 = TEMA.rojo
 			centroTexto.Text = "Derrota"
 		end
-		local extra = (data.recompensa and data.recompensa > 0) and ("\n+" .. data.recompensa .. " 💰") or ""
+		local extra = (data.recompensa and data.recompensa > 0) and ("\n+" .. data.recompensa .. " monedas") or ""
 		subTexto.Text = string.format("Tú: %d  •  Rival: %d%s", data.misClicks, data.oponenteClicks, extra)
 		task.wait(4)
 		overlay.Visible = false
@@ -1918,9 +2063,1194 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
+
+end
+setupNotifHandlers()
+
+-- =====================================================
+-- =====================================================
+-- ESTADÍSTICAS (fuera del tutorial)
+local function setupEstadisticas()
+-- ESTADÍSTICAS: tarjetas visuales centradas (estilo mockup)
+local statsRanksCache = { proteccionRestante = 0 }
+
+local statsOuter = Instance.new("Frame")
+statsOuter.Name = "MenuStats"
+statsOuter.Size = UDim2.new(0, 520, 0, 480)
+statsOuter.Position = UDim2.new(0.5, -260, 0.5, -240)
+statsOuter.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+statsOuter.Visible = false
+statsOuter.ZIndex = 55
+statsOuter.ClipsDescendants = false
+statsOuter.Parent = screenGui
+Instance.new("UICorner", statsOuter).CornerRadius = UDim.new(0, 18)
+do
+	local st = Instance.new("UIStroke")
+	st.Color = TEMA.oro
+	st.Thickness = 2.5
+	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	st.Parent = statsOuter
+end
+
+-- Header
+local hdr = Instance.new("Frame")
+hdr.Size = UDim2.new(1, -24, 0, 44)
+hdr.Position = UDim2.new(0, 12, 0, 10)
+hdr.BackgroundTransparency = 1
+hdr.ZIndex = 56
+hdr.Parent = statsOuter
+
+local statsTitle = Instance.new("TextLabel")
+statsTitle.Size = UDim2.new(1, -80, 1, 0)
+statsTitle.BackgroundTransparency = 1
+statsTitle.Font = Enum.Font.GothamBlack
+statsTitle.TextSize = 24
+statsTitle.TextColor3 = Color3.fromRGB(245, 245, 255)
+statsTitle.TextXAlignment = Enum.TextXAlignment.Left
+statsTitle.Text = "Estadísticas"
+statsTitle.ZIndex = 57
+statsTitle.Parent = hdr
+
+local statsIconHdr = Instance.new("ImageLabel")
+statsIconHdr.Size = UDim2.new(0, 28, 0, 28)
+statsIconHdr.Position = UDim2.new(1, -72, 0.5, -14)
+statsIconHdr.BackgroundTransparency = 1
+statsIconHdr.Image = normalizeAsset(ICONS.stats or ICONS.estrella)
+statsIconHdr.ZIndex = 57
+statsIconHdr.Parent = hdr
+
+local statsClose = Instance.new("ImageButton")
+statsClose.Size = UDim2.new(0, 34, 0, 34)
+statsClose.Position = UDim2.new(1, -34, 0.5, -17)
+statsClose.BackgroundColor3 = Color3.fromRGB(42, 32, 32)
+statsClose.Image = normalizeAsset(ICONS.cerrar)
+statsClose.ScaleType = Enum.ScaleType.Fit
+statsClose.ZIndex = 58
+statsClose.Parent = hdr
+Instance.new("UICorner", statsClose).CornerRadius = UDim.new(0, 10)
+
+local statsScroll = Instance.new("ScrollingFrame")
+statsScroll.Size = UDim2.new(1, -20, 1, -64)
+statsScroll.Position = UDim2.new(0, 10, 0, 56)
+statsScroll.BackgroundTransparency = 1
+statsScroll.BorderSizePixel = 0
+statsScroll.ScrollBarThickness = 5
+statsScroll.ScrollBarImageColor3 = TEMA.oro
+statsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+statsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+statsScroll.ClipsDescendants = true
+statsScroll.ZIndex = 56
+statsScroll.Parent = statsOuter
+
+local statsPad = Instance.new("UIPadding")
+statsPad.PaddingTop = UDim.new(0, 4)
+statsPad.PaddingBottom = UDim.new(0, 12)
+statsPad.PaddingLeft = UDim.new(0, 4)
+statsPad.PaddingRight = UDim.new(0, 8)
+statsPad.Parent = statsScroll
+
+local statsList = Instance.new("UIListLayout")
+statsList.SortOrder = Enum.SortOrder.LayoutOrder
+statsList.Padding = UDim.new(0, 12)
+statsList.Parent = statsScroll
+
+local function strokeGold(parent, thick)
+	local st = Instance.new("UIStroke")
+	st.Color = TEMA.oro
+	st.Thickness = thick or 2
+	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	st.LineJoinMode = Enum.LineJoinMode.Round
+	st.Parent = parent
+	return st
+end
+
+local function sectionLabel(order, text)
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.new(1, -8, 0, 20)
+	l.BackgroundTransparency = 1
+	l.Font = Enum.Font.GothamBlack
+	l.TextSize = 13
+	l.TextColor3 = TEMA.oro
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.Text = text
+	l.LayoutOrder = order
+	l.ZIndex = 57
+	l.Parent = statsScroll
+	return l
+end
+
+-- Tarjeta visual individual (icono + título + valor grande)
+local function metricCard(parent, order, iconAsset, title, accent)
+	local f = Instance.new("Frame")
+	f.Size = UDim2.new(0.5, -8, 0, 92)
+	f.BackgroundColor3 = Color3.fromRGB(24, 26, 36)
+	f.LayoutOrder = order
+	f.ZIndex = 57
+	f.ClipsDescendants = false
+	f.Parent = parent
+	Instance.new("UICorner", f).CornerRadius = UDim.new(0, 14)
+	strokeGold(f, 1.8)
+
+	local iconBg = Instance.new("Frame")
+	iconBg.Size = UDim2.new(0, 36, 0, 36)
+	iconBg.Position = UDim2.new(0, 10, 0, 10)
+	iconBg.BackgroundColor3 = Color3.fromRGB(32, 36, 50)
+	iconBg.ZIndex = 58
+	iconBg.Parent = f
+	Instance.new("UICorner", iconBg).CornerRadius = UDim.new(0, 10)
+
+	local ic = Instance.new("ImageLabel")
+	ic.Size = UDim2.new(1, -8, 1, -8)
+	ic.Position = UDim2.new(0, 4, 0, 4)
+	ic.BackgroundTransparency = 1
+	ic.Image = normalizeAsset(iconAsset)
+	ic.ScaleType = Enum.ScaleType.Fit
+	ic.ZIndex = 59
+	ic.Parent = iconBg
+
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.new(1, -54, 0, 16)
+	t.Position = UDim2.new(0, 52, 0, 12)
+	t.BackgroundTransparency = 1
+	t.Font = Enum.Font.GothamBold
+	t.TextSize = 11
+	t.TextColor3 = Color3.fromRGB(160, 165, 185)
+	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.Text = title
+	t.ZIndex = 58
+	t.Parent = f
+
+	local val = Instance.new("TextLabel")
+	val.Name = "Val"
+	val.Size = UDim2.new(1, -20, 0, 28)
+	val.Position = UDim2.new(0, 12, 0, 48)
+	val.BackgroundTransparency = 1
+	val.Font = Enum.Font.GothamBlack
+	val.TextSize = 22
+	val.TextColor3 = accent or Color3.fromRGB(255, 220, 100)
+	val.TextXAlignment = Enum.TextXAlignment.Left
+	val.Text = "—"
+	val.ZIndex = 58
+	val.Parent = f
+
+	local sub = Instance.new("TextLabel")
+	sub.Name = "Sub"
+	sub.Size = UDim2.new(1, -20, 0, 14)
+	sub.Position = UDim2.new(0, 12, 0, 74)
+	sub.BackgroundTransparency = 1
+	sub.Font = Enum.Font.Gotham
+	sub.TextSize = 11
+	sub.TextColor3 = Color3.fromRGB(140, 145, 165)
+	sub.TextXAlignment = Enum.TextXAlignment.Left
+	sub.Text = ""
+	sub.ZIndex = 58
+	sub.Parent = f
+	return f, val, sub
+end
+
+local function rowGrid(order, height)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -4, 0, height or 92)
+	row.BackgroundTransparency = 1
+	row.LayoutOrder = order
+	row.ZIndex = 56
+	row.Parent = statsScroll
+	local lay = Instance.new("UIListLayout")
+	lay.FillDirection = Enum.FillDirection.Horizontal
+	lay.Padding = UDim.new(0, 10)
+	lay.SortOrder = Enum.SortOrder.LayoutOrder
+	lay.Parent = row
+	return row
+end
+
+local function wideCard(order, height)
+	local f = Instance.new("Frame")
+	f.Size = UDim2.new(1, -4, 0, height or 72)
+	f.BackgroundColor3 = Color3.fromRGB(24, 26, 36)
+	f.LayoutOrder = order
+	f.ZIndex = 57
+	f.ClipsDescendants = false
+	f.Parent = statsScroll
+	Instance.new("UICorner", f).CornerRadius = UDim.new(0, 14)
+	strokeGold(f, 1.8)
+	return f
+end
+
+local function barIn(parent, y)
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.new(1, -24, 0, 12)
+	bg.Position = UDim2.new(0, 12, 0, y)
+	bg.BackgroundColor3 = Color3.fromRGB(40, 42, 55)
+	bg.ZIndex = 58
+	bg.Parent = parent
+	Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.new(0, 0, 1, 0)
+	fill.BackgroundColor3 = TEMA.oro
+	fill.ZIndex = 59
+	fill.Parent = bg
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+	return fill
+end
+
+-- PROGRESIÓN
+sectionLabel(1, "PROGRESIÓN")
+local cardProg = wideCard(2, 100)
+local lblNivel = Instance.new("TextLabel")
+lblNivel.Size = UDim2.new(0.5, -16, 0, 22)
+lblNivel.Position = UDim2.new(0, 12, 0, 10)
+lblNivel.BackgroundTransparency = 1
+lblNivel.Font = Enum.Font.GothamBlack
+lblNivel.TextSize = 18
+lblNivel.TextColor3 = Color3.fromRGB(100, 210, 255)
+lblNivel.TextXAlignment = Enum.TextXAlignment.Left
+lblNivel.Text = "Nivel 1"
+lblNivel.ZIndex = 58
+lblNivel.Parent = cardProg
+local lblXpTxt = Instance.new("TextLabel")
+lblXpTxt.Size = UDim2.new(0.5, -16, 0, 18)
+lblXpTxt.Position = UDim2.new(0.5, 0, 0, 12)
+lblXpTxt.BackgroundTransparency = 1
+lblXpTxt.Font = Enum.Font.GothamBold
+lblXpTxt.TextSize = 13
+lblXpTxt.TextColor3 = Color3.fromRGB(180, 185, 200)
+lblXpTxt.TextXAlignment = Enum.TextXAlignment.Right
+lblXpTxt.Text = "0 / 100 XP"
+lblXpTxt.ZIndex = 58
+lblXpTxt.Parent = cardProg
+local fillXp = barIn(cardProg, 36)
+fillXp.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+
+local lblReb = Instance.new("TextLabel")
+lblReb.Size = UDim2.new(0.5, -16, 0, 18)
+lblReb.Position = UDim2.new(0, 12, 0, 52)
+lblReb.BackgroundTransparency = 1
+lblReb.Font = Enum.Font.GothamBold
+lblReb.TextSize = 14
+lblReb.TextColor3 = Color3.fromRGB(230, 230, 245)
+lblReb.TextXAlignment = Enum.TextXAlignment.Left
+lblReb.Text = "Rebirths: 0"
+lblReb.ZIndex = 58
+lblReb.Parent = cardProg
+local lblRebNeed = Instance.new("TextLabel")
+lblRebNeed.Size = UDim2.new(0.5, -16, 0, 18)
+lblRebNeed.Position = UDim2.new(0.5, 0, 0, 52)
+lblRebNeed.BackgroundTransparency = 1
+lblRebNeed.Font = Enum.Font.Gotham
+lblRebNeed.TextSize = 12
+lblRebNeed.TextColor3 = Color3.fromRGB(160, 165, 185)
+lblRebNeed.TextXAlignment = Enum.TextXAlignment.Right
+lblRebNeed.Text = "0 / 10"
+lblRebNeed.ZIndex = 58
+lblRebNeed.Parent = cardProg
+local fillReb = barIn(cardProg, 74)
+fillReb.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
+
+local lblShield = Instance.new("TextLabel")
+lblShield.Size = UDim2.new(1, -24, 0, 0)
+lblShield.Position = UDim2.new(0, 12, 0, 88)
+lblShield.BackgroundTransparency = 1
+lblShield.Font = Enum.Font.GothamBold
+lblShield.TextSize = 12
+lblShield.TextColor3 = Color3.fromRGB(100, 200, 255)
+lblShield.TextXAlignment = Enum.TextXAlignment.Left
+lblShield.Text = ""
+lblShield.ZIndex = 58
+lblShield.Parent = cardProg
+lblShield.Visible = false
+
+-- ECONOMÍA
+sectionLabel(3, "ECONOMÍA Y COMBATE")
+local rowEco = rowGrid(4, 92)
+local _, valMonedas, subMonedas = metricCard(rowEco, 1, ICONS.moneda or ICONS.estrella, "MONEDAS", Color3.fromRGB(255, 220, 80))
+local _, valVict, subVict = metricCard(rowEco, 2, ICONS.poder or ICONS.estrella, "VICTORIAS PvP", Color3.fromRGB(255, 140, 100))
+local cardXpTot = wideCard(5, 70)
+local icXp = Instance.new("ImageLabel")
+icXp.Size = UDim2.new(0, 32, 0, 32)
+icXp.Position = UDim2.new(0, 14, 0.5, -16)
+icXp.BackgroundTransparency = 1
+icXp.Image = normalizeAsset(ICONS.multixp or ICONS.estrella)
+icXp.ZIndex = 58
+icXp.Parent = cardXpTot
+local lblXpTotTitle = Instance.new("TextLabel")
+lblXpTotTitle.Size = UDim2.new(1, -60, 0, 16)
+lblXpTotTitle.Position = UDim2.new(0, 54, 0, 14)
+lblXpTotTitle.BackgroundTransparency = 1
+lblXpTotTitle.Font = Enum.Font.GothamBold
+lblXpTotTitle.TextSize = 11
+lblXpTotTitle.TextColor3 = Color3.fromRGB(160, 165, 185)
+lblXpTotTitle.TextXAlignment = Enum.TextXAlignment.Left
+lblXpTotTitle.Text = "XP TOTAL CONSEGUIDO"
+lblXpTotTitle.ZIndex = 58
+lblXpTotTitle.Parent = cardXpTot
+local valXpTot = Instance.new("TextLabel")
+valXpTot.Size = UDim2.new(1, -60, 0, 28)
+valXpTot.Position = UDim2.new(0, 54, 0, 32)
+valXpTot.BackgroundTransparency = 1
+valXpTot.Font = Enum.Font.GothamBlack
+valXpTot.TextSize = 22
+valXpTot.TextColor3 = Color3.fromRGB(120, 200, 255)
+valXpTot.TextXAlignment = Enum.TextXAlignment.Left
+valXpTot.Text = "0"
+valXpTot.ZIndex = 58
+valXpTot.Parent = cardXpTot
+
+-- MEJORAS
+sectionLabel(6, "MEJORAS")
+local rowUp1 = rowGrid(7, 92)
+local _, valClicks, subClicks = metricCard(rowUp1, 1, ICONS.clicks or ICONS.poder, "CLICKS / CLICK", Color3.fromRGB(255, 200, 80))
+local _, valIntervalo, subIntervalo = metricCard(rowUp1, 2, ICONS.velAnclaje or ICONS.anclar, "INTERVALO TT", Color3.fromRGB(100, 220, 255))
+local rowUp2 = rowGrid(8, 92)
+local _, valXpTick, subXpTick = metricCard(rowUp2, 1, ICONS.multixp or ICONS.estrella, "XP POR INTERVALO", Color3.fromRGB(140, 255, 160))
+local _, valWalk, subWalk = metricCard(rowUp2, 2, ICONS.walk or ICONS.estrella, "VELOCIDAD", Color3.fromRGB(200, 180, 255))
+local cardMulti = wideCard(9, 48)
+local lblMulti = Instance.new("TextLabel")
+lblMulti.Size = UDim2.new(1, -24, 1, 0)
+lblMulti.Position = UDim2.new(0, 12, 0, 0)
+lblMulti.BackgroundTransparency = 1
+lblMulti.Font = Enum.Font.GothamBold
+lblMulti.TextSize = 14
+lblMulti.TextColor3 = Color3.fromRGB(200, 205, 220)
+lblMulti.TextXAlignment = Enum.TextXAlignment.Center
+lblMulti.Text = "Multi XP x1 · Multi Clicks x1"
+lblMulti.ZIndex = 58
+lblMulti.Parent = cardMulti
+
+-- RESET
+sectionLabel(10, "ZONA DE PELIGRO")
+local cardReset = wideCard(11, 56)
+local btnReset = Instance.new("TextButton")
+btnReset.Size = UDim2.new(1, -24, 0, 36)
+btnReset.Position = UDim2.new(0, 12, 0, 10)
+btnReset.BackgroundColor3 = Color3.fromRGB(130, 40, 40)
+btnReset.Font = Enum.Font.GothamBlack
+btnReset.TextSize = 14
+btnReset.TextColor3 = Color3.new(1, 1, 1)
+btnReset.Text = "Reiniciar progreso"
+btnReset.ZIndex = 58
+btnReset.Parent = cardReset
+Instance.new("UICorner", btnReset).CornerRadius = UDim.new(0, 10)
+strokeGold(btnReset, 1.2).Color = Color3.fromRGB(200, 80, 70)
+
+local function fmtNum(n)
+	n = math.floor(tonumber(n) or 0)
+	if n >= 1e9 then return string.format("%.1fB", n / 1e9) end
+	if n >= 1e6 then return string.format("%.1fM", n / 1e6) end
+	if n >= 1e3 then return string.format("%.1fK", n / 1e3) end
+	return tostring(n)
+end
+
+local function fmtTiempo(seg)
+	seg = math.max(0, math.ceil(tonumber(seg) or 0))
+	if seg <= 0 then return nil end
+	if seg >= 3600 then
+		local h = math.floor(seg / 3600)
+		local m = math.floor((seg % 3600) / 60)
+		return h .. "h " .. m .. "m"
+	end
+	if seg >= 60 then
+		return math.floor(seg / 60) .. "m " .. (seg % 60) .. "s"
+	end
+	return seg .. "s"
+end
+
+local function actualizarStats()
+	local ls = player:FindFirstChild("leaderstats")
+	if not ls then return end
+	local function gv(n, d)
+		local v = ls:FindFirstChild(n)
+		return v and v.Value or d
+	end
+	local nivel = gv("Nivel", 1)
+	local xp = gv("XP", 0)
+	local maxXp = math.max(1, gv("MaxXP", 100))
+	local rebirths = gv("Rebirths", 0)
+	local monedas = gv("Monedas", 0)
+	local vict = gv("Victorias", 0)
+	local xpTot = gv("XPTotal", 0)
+	local cpc = gv("ClicksPorClick", 1) + gv("ClicksRobux", 0)
+	local multiXp = gv("MultiXP", 1)
+	local multiCk = gv("MultiClicks", 1)
+	local velA = gv("VelocidadAnclaje", 0) + gv("VelocidadAnclajeRobux", 0)
+	local velM = gv("VelocidadMovimiento", 0) + gv("VelocidadMovimientoRobux", 0)
+	local intervalo = (Config.getIntervaloAnclaje and Config.getIntervaloAnclaje(velA)) or math.max(0.03, 1 - velA * 0.1)
+	local xpTick = math.floor((Config.XP_ANCLAJE_GANA or 20) * (tonumber(multiXp) or 1))
+	local walk = (Config.getWalkSpeed and Config.getWalkSpeed(velM)) or (16 + velM * 2)
+	local minReb = (Config.getNivelMinimoRebirth and Config.getNivelMinimoRebirth(rebirths)) or 10
+
+	lblNivel.Text = "Nivel " .. tostring(nivel)
+	lblXpTxt.Text = fmtNum(xp) .. " / " .. fmtNum(maxXp) .. " XP"
+	fillXp.Size = UDim2.new(math.clamp(xp / maxXp, 0, 1), 0, 1, 0)
+	lblReb.Text = "Rebirths: " .. tostring(rebirths)
+	lblRebNeed.Text = tostring(nivel) .. " / " .. tostring(minReb) .. " nivel"
+	fillReb.Size = UDim2.new(math.clamp(nivel / math.max(1, minReb), 0, 1), 0, 1, 0)
+
+	local prot = statsRanksCache.proteccionRestante or 0
+	local tProt = fmtTiempo(prot)
+	if tProt then
+		lblShield.Text = "Escudo activo · " .. tProt
+		lblShield.Visible = true
+		lblShield.Size = UDim2.new(1, -24, 0, 16)
+		cardProg.Size = UDim2.new(1, -4, 0, 112)
+	else
+		lblShield.Text = ""
+		lblShield.Visible = false
+		cardProg.Size = UDim2.new(1, -4, 0, 100)
+	end
+
+	valMonedas.Text = fmtNum(monedas)
+	subMonedas.Text = "Saldo actual"
+	valVict.Text = fmtNum(vict)
+	subVict.Text = "Batallas ganadas"
+	valXpTot.Text = fmtNum(xpTot)
+
+	valClicks.Text = fmtNum(cpc)
+	subClicks.Text = "Poder de click"
+	valIntervalo.Text = string.format("%.2fs", intervalo)
+	subIntervalo.Text = "Entre ticks de XP"
+	valXpTick.Text = fmtNum(xpTick)
+	subXpTick.Text = "Por tick anclado"
+	valWalk.Text = tostring(math.floor(walk))
+	subWalk.Text = "WalkSpeed"
+	lblMulti.Text = string.format("Multi XP x%.2f  ·  Multi Clicks x%.2f", multiXp, multiCk)
+
+
+end
+
+abrirStats = function(open)
+	if open == nil then open = not statsOuter.Visible end
+	statsOuter.Visible = open
+	if open then
+		if menuTienda then menuTienda.Visible = false end
+		if menuRetos then menuRetos.Visible = false end
+		menuAbierto = false
+		if dailyFrame then dailyFrame.Visible = false end
+		actualizarStats()
+		-- Solo pedir tiempo de protección (sin ranks)
+		local ev = PedirStatsExtra or ReplicatedStorage:FindFirstChild("PedirStatsExtra")
+		if ev then
+			ev:FireServer()
+		end
+	end
+end
+
+local function bindStatsExtra(ev)
+	if not ev or ev:GetAttribute("BoundStats") then return end
+	ev:SetAttribute("BoundStats", true)
+	ev.OnClientEvent:Connect(function(data)
+		if typeof(data) ~= "table" then return end
+		statsRanksCache.proteccionRestante = data.proteccionRestante or 0
+		if statsOuter.Visible then
+			actualizarStats()
+		end
+	end)
+end
+bindStatsExtra(StatsExtra or ReplicatedStorage:FindFirstChild("StatsExtra"))
+task.spawn(function()
+	bindStatsExtra(StatsExtra or ReplicatedStorage:WaitForChild("StatsExtra", 20))
+end)
+
+statsClose.MouseButton1Click:Connect(function()
+	statsOuter.Visible = false
+end)
+
+btnReset.MouseButton1Click:Connect(function()
+	if not ReiniciarProgreso then return end
+	if btnReset:GetAttribute("Confirm") then
+		ReiniciarProgreso:FireServer()
+		btnReset:SetAttribute("Confirm", false)
+		btnReset.Text = "Reiniciar progreso"
+		btnReset.BackgroundColor3 = Color3.fromRGB(130, 40, 40)
+	else
+		btnReset:SetAttribute("Confirm", true)
+		btnReset.Text = "¿Seguro? Pulsa otra vez"
+		btnReset.BackgroundColor3 = Color3.fromRGB(180, 60, 40)
+		task.delay(4, function()
+			if btnReset and btnReset.Parent then
+				btnReset:SetAttribute("Confirm", false)
+				btnReset.Text = "Reiniciar progreso"
+				btnReset.BackgroundColor3 = Color3.fromRGB(130, 40, 40)
+			end
+		end)
+	end
+end)
+
+do
+	local side = screenGui:FindFirstChild("SideButtons")
+	local b = side and side:FindFirstChild("BtnStats")
+	if b then
+		b.MouseButton1Click:Connect(function()
+			abrirStats()
+		end)
+	end
+end
+
+task.spawn(function()
+	while statsOuter.Parent do
+		if statsOuter.Visible then
+			pcall(actualizarStats)
+		end
+		task.wait(0.75)
+	end
+end)
+
+end
+
+setupEstadisticas()
+
+local function setupTutorial()
+-- =====================================================
+-- TUTORIAL interactivo
+-- =====================================================
+local TUTORIAL_STEPS = {
+	{
+		id = "welcome",
+		kind = "info",
+		icon = "estrella",
+		titulo = "Triki Traka",
+		texto = "Ganas XP al hacer Triki Traka por detrás de otros. Subes de nivel, consigues monedas en duelos y mejoras tu poder en la tienda. El Rebirth da multiplicadores permanentes.",
+	},
+	{
+		id = "hud",
+		kind = "info",
+		icon = "multixp",
+		titulo = "Tu progreso",
+		texto = "Nivel, XP y monedas están arriba. La barra de XP llena al subir de nivel.",
+		highlight = "hud",
+	},
+	{
+		id = "open_tienda",
+		kind = "action",
+		icon = "tienda",
+		titulo = "Abre la Tienda",
+		texto = "Pulsa Tienda para ver las mejoras.",
+		action = "open_tienda",
+		hint = "Pulsa Tienda",
+	},
+	{
+		id = "shop_poder",
+		kind = "info",
+		icon = "clicks",
+		titulo = "Clicks por click",
+		texto = "En Poder, cada mejora suma clicks por cada clic en duelos. Clicks efectivos = Clicks por click × Multi clicks.",
+		highlight = "tienda_poder",
+	},
+	{
+		id = "shop_vel",
+		kind = "info",
+		icon = "velAnclaje",
+		titulo = "Velocidad Triki Traka",
+		texto = "En Movimiento, esta mejora reduce el tiempo entre ticks de XP mientras haces Triki Traka. Más niveles = XP más a menudo.",
+		highlight = "tienda_mov",
+	},
+	{
+		id = "open_daily",
+		kind = "action",
+		icon = "daily",
+		titulo = "Recompensa diaria",
+		texto = "Abre el Diario y reclama la recompensa de hoy.",
+		action = "open_daily",
+		hint = "Pulsa Diario",
+	},
+	{
+		id = "claim_daily",
+		kind = "action",
+		icon = "daily",
+		titulo = "Reclama el Diario",
+		texto = "Pulsa RECLAMAR. Al terminar el tutorial tendrás 1 minuto de protección.",
+		action = "claim_daily",
+		hint = "Pulsa RECLAMAR",
+	},
+	{
+		id = "open_retar",
+		kind = "action",
+		icon = "retar",
+		titulo = "Abre Retar",
+		texto = "Pulsa Retar. Aquí practicarás con un bot de nivel 1.",
+		action = "open_retar",
+		hint = "Pulsa Retar",
+	},
+	{
+		id = "do_retar",
+		kind = "action",
+		icon = "bot",
+		titulo = "Reta un bot nivel 1",
+		texto = "Pulsa Retar en un bot NV 1 y haz el minijuego de clics.",
+		action = "retar_bot",
+		hint = "Retar bot nivel 1",
+	},
+	{
+		id = "do_anclar",
+		kind = "action",
+		icon = "anclar",
+		titulo = "Haz Triki Traka",
+		texto = "Acércate a un bot ambulante o jugador y usa el prompt Triki Traka (E).",
+		action = "anclar",
+		hint = "Haz Triki Traka",
+	},
+	{
+		id = "see_xp",
+		kind = "action",
+		icon = "multixp",
+		titulo = "Tu XP sube",
+		texto = "Quédate anclado y mira cómo sube la XP arriba.",
+		action = "xp_gain",
+		hint = "Espera a que suba la XP",
+	},
+	{
+		id = "expulsion_demo",
+		kind = "info",
+		icon = "desanclar",
+		titulo = "Expulsión",
+		texto = "Si te hacen Triki Traka, puedes gastar monedas para expulsar. El otro se defiende a clics unos segundos.",
+	},
+	{
+		id = "rebirth_info",
+		kind = "info",
+		icon = "rebirths",
+		titulo = "Rebirth",
+		texto = "Reinicia nivel y algunas mejoras a cambio de multiplicadores permanentes. Nivel conseguido no se resetea.",
+	},
+	{
+		id = "done",
+		kind = "info",
+		icon = "check",
+		titulo = "Listo",
+		texto = "Triki Traka → XP → nivel → duelos → tienda → Rebirth cuando toque.",
+	},
+}
+
+tutorialActive = false
+local tutorialStep = 1
+local tutorialRoot = nil
+local tutorialPulse = nil
+local tutorialWaiting = false
+local tutorialXpStart = nil
+local tutorialHighlight = nil
+local tutorialDailyOk = false
+
+local function clearTutorialHighlight()
+	if tutorialHighlight then
+		local p = tutorialHighlight.Parent
+		if p then
+			local badge = p:FindFirstChild("PulsaAqui")
+			if badge then badge:Destroy() end
+		end
+		tutorialHighlight:Destroy()
+		tutorialHighlight = nil
+	end
+	if screenGui then
+		for _, d in ipairs(screenGui:GetDescendants()) do
+			if d.Name == "PulsaAqui" then d:Destroy() end
+			if d:IsA("UIStroke") and d:GetAttribute("IsTutorial") then d:Destroy() end
+		end
+	end
+end
+
+local function highlightGui(obj, showPulsa)
+	clearTutorialHighlight()
+	if not obj or not obj.Parent then return end
+	local stroke = Instance.new("UIStroke")
+	stroke.Name = "TutorialHighlight"
+	stroke.Color = TEMA.oro or Color3.fromRGB(245, 197, 66)
+	stroke.Thickness = 3
+	stroke.Parent = obj
+	stroke:SetAttribute("IsTutorial", true)
+	tutorialHighlight = stroke
+	if showPulsa then
+		local badge = Instance.new("TextLabel")
+		badge.Name = "PulsaAqui"
+		badge.Size = UDim2.new(0, 88, 0, 22)
+		badge.Position = UDim2.new(0.5, -44, 0, -26)
+		badge.BackgroundColor3 = TEMA.oro or Color3.fromRGB(245, 197, 66)
+		badge.Font = Enum.Font.GothamBlack
+		badge.TextSize = 12
+		badge.TextColor3 = Color3.fromRGB(20, 20, 20)
+		badge.Text = "Pulsa aquí"
+		badge.ZIndex = (obj.ZIndex or 1) + 20
+		badge.Parent = obj
+		Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 6)
+	end
+	task.spawn(function()
+		while stroke.Parent do
+			stroke.Transparency = 0.05
+			task.wait(0.35)
+			if not stroke.Parent then break end
+			stroke.Transparency = 0.55
+			task.wait(0.35)
+		end
+	end)
+end
+
+local function destroyTutorial()
+	tutorialActive = false
+	tutorialWaiting = false
+	tutorialXpStart = nil
+	clearTutorialHighlight()
+	if tutorialPulse then
+		task.cancel(tutorialPulse)
+		tutorialPulse = nil
+	end
+	if tutorialRoot then
+		tutorialRoot:Destroy()
+		tutorialRoot = nil
+	end
+end
+
+local function finishTutorial(action)
+	destroyTutorial()
+	if TutorialAction then
+		pcall(function()
+			TutorialAction:FireServer(action or "complete")
+		end)
+	end
+end
+
+local function getStep()
+	return TUTORIAL_STEPS[tutorialStep]
+end
+
+local function updateTutorialCard()
+	if not tutorialRoot then return end
+	local step = getStep()
+	if not step then
+		finishTutorial("complete")
+		return
+	end
+	local title = tutorialRoot:FindFirstChild("Title", true)
+	local body = tutorialRoot:FindFirstChild("Body", true)
+	local progress = tutorialRoot:FindFirstChild("Progress", true)
+	local hint = tutorialRoot:FindFirstChild("Hint", true)
+	local nextBtn = tutorialRoot:FindFirstChild("NextBtn", true)
+	local icon = tutorialRoot:FindFirstChild("StepIcon", true)
+	if title then title.Text = step.titulo end
+	if body then body.Text = step.texto end
+	if progress then progress.Text = string.format("%d / %d", tutorialStep, #TUTORIAL_STEPS) end
+	if icon and ICONS[step.icon] then
+		icon.Image = normalizeAsset(ICONS[step.icon])
+	end
+	if hint then
+		hint.Text = (step.kind == "action" and (step.hint or "")) or ""
+		hint.TextColor3 = TEMA.oro
+	end
+	if nextBtn then
+		if step.kind == "action" then
+			nextBtn.Visible = false
+			tutorialWaiting = true
+		else
+			nextBtn.Visible = true
+			nextBtn.Text = (tutorialStep >= #TUTORIAL_STEPS) and "¡Jugar!" or "Siguiente"
+			tutorialWaiting = false
+		end
+	end
+	clearTutorialHighlight()
+	if step.highlight == "hud" or step.action == "xp_gain" then
+		local hud = screenGui:FindFirstChild("HUD")
+		if hud then highlightGui(hud, false) end
+	elseif step.highlight == "tienda_poder" then
+		if menuTienda then
+			menuTienda.Visible = true
+			pcall(function() tiendaMostrar("Poder") end)
+			highlightGui(menuTienda, false)
+		end
+	elseif step.highlight == "tienda_mov" then
+		if menuTienda then
+			menuTienda.Visible = true
+			pcall(function() tiendaMostrar("Movimiento") end)
+			highlightGui(menuTienda, false)
+		end
+	elseif step.action == "open_tienda" then
+		if btnTienda then highlightGui(btnTienda, true) end
+	elseif step.action == "open_daily" or step.action == "claim_daily" then
+		if btnDaily then highlightGui(btnDaily, true) end
+		if step.action == "claim_daily" and dailyFrame and dailyFrame.Visible then
+			for _, c in ipairs(dailyFrame:GetDescendants()) do
+				if c:IsA("TextButton") and string.upper(c.Text or ""):find("RECLAMAR") then
+					highlightGui(c, true)
+					break
+				end
+			end
+		end
+	elseif step.action == "open_retar" then
+		if btnRetar then highlightGui(btnRetar, true) end
+	elseif step.action == "retar_bot" then
+		if menuRetos and menuRetos.Visible then
+			pcall(function() actualizarLista() end)
+			for _, c in ipairs(menuRetos:GetDescendants()) do
+				if c:IsA("TextButton") and c.Text == "Retar" then
+					highlightGui(c, true)
+					break
+				end
+			end
+		elseif btnRetar then
+			highlightGui(btnRetar, true)
+		end
+	end
+end
+
+local function advanceTutorial()
+	if tutorialStep >= #TUTORIAL_STEPS then
+		finishTutorial("complete")
+		return
+	end
+	tutorialStep = tutorialStep + 1
+	tutorialXpStart = nil
+	updateTutorialCard()
+	local step = getStep()
+	if step and step.action == "xp_gain" then
+		local ls = player:FindFirstChild("leaderstats")
+		local xpv = ls and ls:FindFirstChild("XP")
+		tutorialXpStart = xpv and xpv.Value or 0
+	end
+	if step and step.action == "claim_daily" then
+		-- si ya no puede reclamar hoy, avanzar
+		task.defer(function()
+			task.wait(0.2)
+			if tutorialDailyOk then
+				tryCompleteAction("claim_daily")
+			end
+		end)
+	end
+	if step and step.action == "retar_bot" then
+		if menuRetos and menuRetos.Visible then
+			pcall(function() actualizarLista() end)
+		end
+	end
+	if TutorialAction then
+		pcall(function() TutorialAction:FireServer("step") end)
+	end
+end
+
+local function tryCompleteAction(actionId)
+	if not tutorialActive or not tutorialWaiting then return end
+	local step = getStep()
+	if not step or step.kind ~= "action" or step.action ~= actionId then return end
+	tutorialWaiting = false
+	task.delay(0.3, function()
+		if tutorialActive then advanceTutorial() end
+	end)
+end
+
+local function pollTutorialActions()
+	if not tutorialActive then return end
+	local step = getStep()
+	if not step or step.kind ~= "action" then return end
+	if step.action == "open_tienda" then
+		if menuTienda and menuTienda.Visible then tryCompleteAction("open_tienda") end
+	elseif step.action == "open_daily" then
+		if dailyFrame and dailyFrame.Visible then tryCompleteAction("open_daily") end
+	elseif step.action == "claim_daily" then
+		if tutorialDailyOk then
+			tryCompleteAction("claim_daily")
+		end
+	elseif step.action == "open_retar" then
+		if menuRetos and menuRetos.Visible then
+			pcall(function() actualizarLista() end)
+			tryCompleteAction("open_retar")
+		end
+	elseif step.action == "retar_bot" then
+		if menuRetos and menuRetos.Visible then
+			pcall(function() actualizarLista() end)
+		end
+	elseif step.action == "xp_gain" then
+		local ls = player:FindFirstChild("leaderstats")
+		local xpv = ls and ls:FindFirstChild("XP")
+		if xpv and tutorialXpStart ~= nil and xpv.Value > tutorialXpStart then
+			tryCompleteAction("xp_gain")
+		end
+	end
+end
+
+local function openTutorial()
+	if tutorialActive then return end
+	if Config.TUTORIAL and Config.TUTORIAL.Enabled == false then return end
+	tutorialActive = true
+	tutorialStep = 1
+	tutorialWaiting = false
+	tutorialDailyOk = false
+	if TutorialAction then
+		pcall(function() TutorialAction:FireServer("started") end)
+	end
+
+	local overlay = Instance.new("Frame")
+	overlay.Name = "TutorialOverlay"
+	overlay.Size = UDim2.new(0, 380, 0, 0)
+	overlay.AutomaticSize = Enum.AutomaticSize.Y
+	overlay.Position = UDim2.new(0.5, -190, 0.72, 0)
+	overlay.AnchorPoint = Vector2.new(0, 0)
+	overlay.BackgroundColor3 = TEMA.fondoOscuro
+	overlay.BorderSizePixel = 0
+	overlay.ZIndex = 200
+	overlay.Parent = screenGui
+	tutorialRoot = overlay
+	Instance.new("UICorner", overlay).CornerRadius = UDim.new(0, 12)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = TEMA.oro
+	stroke.Thickness = 2
+	stroke.Parent = overlay
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 12)
+	pad.PaddingBottom = UDim.new(0, 12)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	pad.Parent = overlay
+
+	local uiscale = Instance.new("UIScale")
+	uiscale.Parent = overlay
+	local function fit()
+		local cam = workspace.CurrentCamera
+		local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+		uiscale.Scale = math.clamp(math.min(vs.X / 400, vs.Y / 500), 0.75, 1.1)
+		overlay.Position = UDim2.new(0.5, -190 * uiscale.Scale, 0.70, 0)
+	end
+	fit()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+	end
+
+	local top = Instance.new("Frame")
+	top.Size = UDim2.new(1, 0, 0, 40)
+	top.BackgroundTransparency = 1
+	top.ZIndex = 201
+	top.Parent = overlay
+
+	local iconBg = Instance.new("Frame")
+	iconBg.Size = UDim2.new(0, 36, 0, 36)
+	iconBg.BackgroundColor3 = Color3.fromRGB(24, 26, 36)
+	iconBg.ZIndex = 201
+	iconBg.Parent = top
+	Instance.new("UICorner", iconBg).CornerRadius = UDim.new(0, 10)
+	local stepIcon = Instance.new("ImageLabel")
+	stepIcon.Name = "StepIcon"
+	stepIcon.Size = UDim2.new(0, 24, 0, 24)
+	stepIcon.Position = UDim2.new(0.5, -12, 0.5, -12)
+	stepIcon.BackgroundTransparency = 1
+	stepIcon.ScaleType = Enum.ScaleType.Fit
+	stepIcon.ZIndex = 202
+	stepIcon.Parent = iconBg
+
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Size = UDim2.new(1, -100, 1, 0)
+	title.Position = UDim2.new(0, 44, 0, 0)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBlack
+	title.TextSize = 15
+	title.TextColor3 = TEMA.oro
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextWrapped = true
+	title.ZIndex = 201
+	title.Parent = top
+
+	local progress = Instance.new("TextLabel")
+	progress.Name = "Progress"
+	progress.Size = UDim2.new(0, 50, 0, 18)
+	progress.Position = UDim2.new(1, -50, 0, 4)
+	progress.BackgroundTransparency = 1
+	progress.Font = Enum.Font.GothamBold
+	progress.TextSize = 11
+	progress.TextColor3 = TEMA.muted
+	progress.ZIndex = 201
+	progress.Parent = top
+
+	local body = Instance.new("TextLabel")
+	body.Name = "Body"
+	body.Size = UDim2.new(1, 0, 0, 0)
+	body.AutomaticSize = Enum.AutomaticSize.Y
+	body.Position = UDim2.new(0, 0, 0, 44)
+	body.BackgroundTransparency = 1
+	body.Font = Enum.Font.Gotham
+	body.TextSize = 13
+	body.TextColor3 = TEMA.texto
+	body.TextXAlignment = Enum.TextXAlignment.Left
+	body.TextYAlignment = Enum.TextYAlignment.Top
+	body.TextWrapped = true
+	body.ZIndex = 201
+	body.Parent = overlay
+
+	local hint = Instance.new("TextLabel")
+	hint.Name = "Hint"
+	hint.Size = UDim2.new(1, 0, 0, 16)
+	hint.BackgroundTransparency = 1
+	hint.Font = Enum.Font.GothamBold
+	hint.TextSize = 12
+	hint.TextColor3 = TEMA.oro
+	hint.ZIndex = 201
+	hint.Parent = overlay
+
+	local buttons = Instance.new("Frame")
+	buttons.Name = "Buttons"
+	buttons.Size = UDim2.new(1, 0, 0, 34)
+	buttons.BackgroundTransparency = 1
+	buttons.ZIndex = 201
+	buttons.Parent = overlay
+	local blay = Instance.new("UIListLayout")
+	blay.FillDirection = Enum.FillDirection.Horizontal
+	blay.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	blay.Padding = UDim.new(0, 8)
+	blay.Parent = buttons
+
+	-- order: body, hint, buttons using list on overlay
+	local olay = Instance.new("UIListLayout")
+	olay.Padding = UDim.new(0, 8)
+	olay.SortOrder = Enum.SortOrder.LayoutOrder
+	olay.Parent = overlay
+	top.LayoutOrder = 1
+	body.LayoutOrder = 2
+	hint.LayoutOrder = 3
+	buttons.LayoutOrder = 4
+	body.Position = UDim2.new(0, 0, 0, 0)
+	hint.Size = UDim2.new(1, 0, 0, 16)
+
+	local skipBtn = Instance.new("TextButton")
+	skipBtn.Name = "SkipBtn"
+	skipBtn.Size = UDim2.new(0, 90, 0, 32)
+	skipBtn.BackgroundColor3 = Color3.fromRGB(50, 52, 64)
+	skipBtn.Font = Enum.Font.GothamBold
+	skipBtn.TextSize = 13
+	skipBtn.TextColor3 = TEMA.texto
+	skipBtn.Text = "Omitir"
+	skipBtn.ZIndex = 202
+	skipBtn.LayoutOrder = 1
+	skipBtn.Parent = buttons
+	Instance.new("UICorner", skipBtn).CornerRadius = UDim.new(0, 8)
+	skipBtn.MouseButton1Click:Connect(function()
+		finishTutorial("skip")
+	end)
+
+	local nextBtn = Instance.new("TextButton")
+	nextBtn.Name = "NextBtn"
+	nextBtn.Size = UDim2.new(0, 110, 0, 32)
+	nextBtn.BackgroundColor3 = TEMA.oro
+	nextBtn.Font = Enum.Font.GothamBlack
+	nextBtn.TextSize = 13
+	nextBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+	nextBtn.Text = "Siguiente"
+	nextBtn.ZIndex = 202
+	nextBtn.LayoutOrder = 2
+	nextBtn.Parent = buttons
+	Instance.new("UICorner", nextBtn).CornerRadius = UDim.new(0, 8)
+	nextBtn.MouseButton1Click:Connect(function()
+		local step = getStep()
+		if step and step.kind == "action" then return end
+		advanceTutorial()
+	end)
+
+	updateTutorialCard()
+	tutorialPulse = task.spawn(function()
+		while tutorialActive do
+			pollTutorialActions()
+			task.wait(0.35)
+		end
+	end)
+end
+
+if NotificarCliente then
+	NotificarCliente.OnClientEvent:Connect(function(data)
+		if typeof(data) ~= "table" then return end
+		if data.tipo == "anclado" then
+			tryCompleteAction("anclar")
+			if tutorialActive then
+				local step = getStep()
+				if step and step.action == "xp_gain" then
+					local ls = player:FindFirstChild("leaderstats")
+					local xpv = ls and ls:FindFirstChild("XP")
+					tutorialXpStart = xpv and xpv.Value or 0
+				end
+			end
+		elseif data.tipo == "exito" and data.mensaje and string.find(data.mensaje, "Daily") then
+			tutorialDailyOk = true
+			tryCompleteAction("claim_daily")
+		end
+	end)
+end
+
+if SyncDaily then
+	SyncDaily.OnClientEvent:Connect(function(data)
+		if typeof(data) == "table" and data.canClaim == false and tutorialActive then
+			-- ya reclamado hoy: permitir pasar claim
+			tutorialDailyOk = true
+		end
+	end)
+end
+
+if IniciarMinijuego then
+	IniciarMinijuego.OnClientEvent:Connect(function()
+		tryCompleteAction("retar_bot")
+	end)
+end
+
+if TutorialSync then
+	TutorialSync.OnClientEvent:Connect(function(data)
+		if typeof(data) ~= "table" then return end
+		if data.show == true then
+			task.defer(openTutorial)
+		else
+			destroyTutorial()
+		end
+	end)
+end
+
+
+
+-- Garantizar botón Estadísticas visible
+do
+	local side = screenGui:FindFirstChild("SideButtons")
+	local existing = side and side:FindFirstChild("BtnStats")
+	if side and not existing then
+		local b = Instance.new("ImageButton")
+		b.Name = "BtnStats"
+		b.Size = UDim2.new(0, 52, 0, 52)
+		b.BackgroundColor3 = Color3.fromRGB(22, 36, 42)
+		b.LayoutOrder = 4
+		b.ZIndex = 16
+		b.Image = normalizeAsset(ICONS.stats or ICONS.estrella)
+		b.ScaleType = Enum.ScaleType.Fit
+		b.Parent = side
+		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 12)
+		local st = Instance.new("UIStroke")
+		st.Color = Color3.fromRGB(80, 200, 220)
+		st.Thickness = 2.5
+		st.Parent = b
+		local pad = Instance.new("UIPadding")
+		pad.PaddingTop = UDim.new(0, 11)
+		pad.PaddingBottom = UDim.new(0, 11)
+		pad.PaddingLeft = UDim.new(0, 11)
+		pad.PaddingRight = UDim.new(0, 11)
+		pad.Parent = b
+		existing = b
+		print("[AuraUI] BtnStats creado en fallback")
+	end
+	if existing and not existing:GetAttribute("StatsBound") then
+		existing:SetAttribute("StatsBound", true)
+		existing.MouseButton1Click:Connect(function()
+			local so = screenGui:FindFirstChild("MenuStats")
+			if so then
+				so.Visible = not so.Visible
+				if so.Visible then
+					menuTienda.Visible = false
+					menuRetos.Visible = false
+					if dailyFrame then dailyFrame.Visible = false end
+					pcall(function()
+						if actualizarStats then actualizarStats() end
+					end)
+				end
+			else
+				warn("[AuraUI] MenuStats no existe aún")
+			end
+		end)
+		print("[AuraUI] BtnStats conectado")
+	end
+end
+
 print("[AuraUI] Cliente cargado completamente")
 
 
+end
+setupTutorial()
+
+local function setupExpulsionUI()
 -- =====================================================
 -- UI EXPULSIÓN COMPACTA + BATALLA A PANTALLA COMPLETA
 -- =====================================================
@@ -1952,7 +3282,7 @@ expTitle.Font = Enum.Font.GothamBlack
 expTitle.TextSize = 14
 expTitle.TextColor3 = TEMA.naranja
 expTitle.TextXAlignment = Enum.TextXAlignment.Left
-expTitle.Text = "⚡ Te han anclado"
+expTitle.Text = "Te han anclado"
 expTitle.Parent = expInner
 
 local expProbLabel = Instance.new("TextLabel")
@@ -1997,7 +3327,7 @@ expDineroBox.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
 expDineroBox.Font = Enum.Font.GothamBold
 expDineroBox.TextSize = 14
 expDineroBox.TextColor3 = TEMA.texto
-expDineroBox.PlaceholderText = "💰 dinero"
+expDineroBox.PlaceholderText = "Cantidad de monedas"
 expDineroBox.Text = tostring((Config.EXPULSION and Config.EXPULSION.DINERO_MINIMO) or 10)
 expDineroBox.ClearTextOnFocus = false
 expDineroBox.Parent = expInner
@@ -2188,14 +3518,14 @@ if ExpulsionUpdate then
 			expFrame.Visible = true
 			if expFase == "preparacion" then
 				stopDefensaInput()
-				expTitle.Text = "⚡ " .. (data.quien or "?") .. " anclado"
+				expTitle.Text = (data.quien or "?") .. " anclado"
 				expDineroBox.Visible = true
 				expBtnIntentar.Visible = true
 				expFrame.Size = UDim2.new(0, 340, 0, 120)
 				local full = data.dineroParaFull or "?"
-				expSub.Text = string.format("~%s 💰 = prob máx  |  defensa -%.0f%%", tostring(full), (data.reduccionMax or 0.35) * 100)
+				expSub.Text = string.format("~%s monedas = prob máx  |  defensa -%.0f%%", tostring(full), (data.reduccionMax or 0.35) * 100)
 			elseif expFase == "batalla" then
-				expTitle.Text = string.format("⚔️ BATALLA %.1fs", data.tiempoRestante or 0)
+				expTitle.Text = string.format("BATALLA %.1fs", data.tiempoRestante or 0)
 				expDineroBox.Visible = false
 				expBtnIntentar.Visible = false
 				expFrame.Size = UDim2.new(0, 340, 0, 90)
@@ -2225,6 +3555,10 @@ if ExpulsionUpdate then
 	end)
 end
 
+end
+setupExpulsionUI()
+
+local function setupDailyUI()
 -- =====================================================
 -- DAILY REWARDS UI (Trike Arcade + iconos)
 -- =====================================================
@@ -2358,6 +3692,8 @@ do
 			menuTienda.Visible = false
 			menuRetos.Visible = false
 			menuAbierto = false
+			local so = screenGui:FindFirstChild("MenuStats")
+			if so then so.Visible = false end
 		end
 	end)
 
@@ -2409,6 +3745,10 @@ end
 
 print("[AuraUI] Daily + iconos listos")
 
+end
+setupDailyUI()
+
+local function setupPromoUI()
 -- =====================================================
 -- PROMO ROBUX PERIÓDICA (pestaña cerrable)
 -- =====================================================
@@ -2439,7 +3779,7 @@ promoTitle.Font = Enum.Font.GothamBlack
 promoTitle.TextSize = 14
 promoTitle.TextColor3 = TEMA.naranja
 promoTitle.TextXAlignment = Enum.TextXAlignment.Left
-promoTitle.Text = "💎 Oferta especial"
+promoTitle.Text = "Oferta especial"
 promoTitle.Parent = promoInner
 
 local promoClose = Instance.new("TextButton")
@@ -2519,7 +3859,7 @@ local function mostrarPromoAleatoria()
 	if not tier then return end
 
 	promoActual = { track = track, tier = tier, tierIdx = idx, productId = tier.productId }
-	promoTitle.Text = (track.emoji or "💎") .. " " .. (track.titulo or "Oferta")
+	promoTitle.Text = (track.titulo or "Oferta")
 	promoDesc.Text = (tier.label or "Mejora") .. "  ·  Tier " .. idx .. "/" .. #track.tiers
 	promoBuy.Text = "Comprar  R$ " .. tostring(tier.precio or "…")
 	promoFrame.Visible = true
@@ -2596,11 +3936,11 @@ if NotificarCliente then
 				tierIdx = data.tierIdx or 1,
 				productId = data.productId,
 			}
-			promoTitle.Text = data.titulo or (esRebirth and "♻️ REBIRTH" or "💎 Oferta")
+			promoTitle.Text = data.titulo or (esRebirth and "REBIRTH" or "Oferta")
 			local razon = data.razon and (" · " .. data.razon) or ""
 			if esRebirth then
 				promoDesc.Text = (data.label or "Reinicia con ventajas") .. razon
-				promoBuy.Text = "♻️ HACER REBIRTH"
+				promoBuy.Text = "HACER REBIRTH"
 				promoBuy.BackgroundColor3 = Color3.fromRGB(180, 50, 230)
 			else
 				promoDesc.Text = (data.label or "Mejora") .. "  ·  Tier " .. tostring(data.tierIdx or 1) .. "/" .. tostring(data.tiersTotal or "?") .. razon
@@ -2639,3 +3979,6 @@ print("[AuraUI] Promo Robux lista")
 player.CharacterAdded:Connect(function()
 	stopAnclajeAnimLocal()
 end)
+end
+setupPromoUI()
+

@@ -30,6 +30,9 @@ Context.playerMetrics = {}
 Context.botsAmbulantes = {}
 Context.ultimaRecomendacion = {}
 Context.botsConfigurados = {}
+Context.tutorialDone = {}
+Context.tutorialActive = {}
+Context.tutorialDailyClaimed = {}
 Context.ultimoTick = {}
 Context.candidateGenerators = nil
 
@@ -60,5 +63,10 @@ Context.ExpulsionAccion = getOrCreateRemote("ExpulsionAccion")
 Context.ExpulsionDefensa = getOrCreateRemote("ExpulsionDefensa")
 Context.ClaimDaily = getOrCreateRemote("ClaimDaily")
 Context.SyncDaily = getOrCreateRemote("SyncDaily")
+Context.TutorialSync = getOrCreateRemote("TutorialSync")
+Context.TutorialAction = getOrCreateRemote("TutorialAction")
+Context.ReiniciarProgreso = getOrCreateRemote("ReiniciarProgreso")
+Context.PedirStatsExtra = getOrCreateRemote("PedirStatsExtra")
+Context.StatsExtra = getOrCreateRemote("StatsExtra")
 
 return Context

@@ -90,14 +90,19 @@ function ctx.guardarDatos(player)
 		Rebirths = ctx.valOr(ls, "Rebirths", 0),
 		Victorias = ctx.valOr(ls, "Victorias", 0),
 		NivelConseguido = ctx.valOr(ls, "NivelConseguido", 1),
+		XPTotal = ctx.valOr(ls, "XPTotal", 0),
 		ClicksPorClick = ctx.valOr(ls, "ClicksPorClick", 1),
 		MultiXP = ctx.valOr(ls, "MultiXP", 1),
 		MultiClicks = ctx.valOr(ls, "MultiClicks", 1),
 		VelocidadAnclaje = ctx.valOr(ls, "VelocidadAnclaje", 0),
 		VelocidadMovimiento = ctx.valOr(ls, "VelocidadMovimiento", 0),
+		VelocidadAnclajeRobux = ctx.valOr(ls, "VelocidadAnclajeRobux", 0),
+		VelocidadMovimientoRobux = ctx.valOr(ls, "VelocidadMovimientoRobux", 0),
+		ClicksRobux = ctx.valOr(ls, "ClicksRobux", 0),
 		DailyLastDay = (dd and dd.lastDay) or 0,
 		DailyStreak = (dd and dd.streak) or 0,
 		PromoTiers = promoTiers[player] or {},
+		TutorialDone = (ctx.tutorialDone and ctx.tutorialDone[player]) == true,
 	}
 
 	-- Cache por UserId (misma sesión de servidor)
@@ -201,11 +206,15 @@ function ctx.crearLeaderstats(player, datosGuardados)
 		addInt("Victorias", datosGuardados.Victorias or 0)
 		local ncInit = math.max(datosGuardados.NivelConseguido or 0, datosGuardados.Nivel or 1)
 		addInt("NivelConseguido", ncInit)
+		addInt("XPTotal", math.floor(datosGuardados.XPTotal or 0))
 		addInt("ClicksPorClick", datosGuardados.ClicksPorClick or 1)
 		addNum("MultiXP", datosGuardados.MultiXP or 1)
 		addNum("MultiClicks", datosGuardados.MultiClicks or 1)
 		addInt("VelocidadAnclaje", datosGuardados.VelocidadAnclaje or 0)
 		addInt("VelocidadMovimiento", datosGuardados.VelocidadMovimiento or 0)
+		addInt("VelocidadAnclajeRobux", datosGuardados.VelocidadAnclajeRobux or 0)
+		addInt("VelocidadMovimientoRobux", datosGuardados.VelocidadMovimientoRobux or 0)
+		addInt("ClicksRobux", datosGuardados.ClicksRobux or 0)
 	else
 		addInt("Nivel", 1)
 		addInt("XP", Config.XP_INICIAL)
@@ -214,11 +223,15 @@ function ctx.crearLeaderstats(player, datosGuardados)
 		addInt("Rebirths", 0)
 		addInt("Victorias", 0)
 		addInt("NivelConseguido", 1)
+		addInt("XPTotal", 0)
 		addInt("ClicksPorClick", 1)
 		addNum("MultiXP", 1)
 		addNum("MultiClicks", 1)
 		addInt("VelocidadAnclaje", 0)
 		addInt("VelocidadMovimiento", 0)
+		addInt("VelocidadAnclajeRobux", 0)
+		addInt("VelocidadMovimientoRobux", 0)
+		addInt("ClicksRobux", 0)
 	end
 end
 
@@ -228,6 +241,17 @@ function ctx.getStat(player, name)
 		return ls[name].Value
 	end
 	return 0
+end
+
+
+function ctx.getVelAnclajeTotal(player)
+	return ctx.getStat(player, "VelocidadAnclaje") + ctx.getStat(player, "VelocidadAnclajeRobux")
+end
+function ctx.getVelMovimientoTotal(player)
+	return ctx.getStat(player, "VelocidadMovimiento") + ctx.getStat(player, "VelocidadMovimientoRobux")
+end
+function ctx.getClicksTotal(player)
+	return ctx.getStat(player, "ClicksPorClick") + ctx.getStat(player, "ClicksRobux")
 end
 
 function ctx.setStat(player, name, value)
@@ -291,6 +315,7 @@ function ctx.agregarXP(player, cantidad)
 	ctx.setStat(player, "XP", xp)
 	ctx.setStat(player, "Nivel", nivel)
 	ctx.setStat(player, "MaxXP", maxXP)
+	ctx.setStat(player, "XPTotal", ctx.getStat(player, "XPTotal") + real)
 
 	if nivel > nivelAntes then
 		local m = playerMetrics[player]
@@ -369,7 +394,7 @@ end
 -- =====================================================
 
 function ctx.getWalkSpeedJugador(player)
-	return Config.getWalkSpeed(ctx.getStat(player, "VelocidadMovimiento"))
+	return Config.getWalkSpeed(ctx.getVelMovimientoTotal(player))
 end
 
 function ctx.stopAnimAnclaje(player)
@@ -521,7 +546,9 @@ function ctx.desanclar(player)
 
 	NotificarCliente:FireClient(player, { tipo = "desanclado", mensaje = "Te has desanclado" })
 	if objetivo and objetivo.Parent and objetivo:IsA("Player") then
-		NotificarCliente:FireClient(objetivo, { tipo = "alguien_desanclado", mensaje = player.Name .. " se ha desanclado" })
+		if typeof(objetivo) == "Instance" and objetivo:IsA("Player") then
+			NotificarCliente:FireClient(objetivo, { tipo = "alguien_desanclado", mensaje = player.Name .. " se ha desanclado" })
+		end
 		-- Si el objetivo tenía sesión de expulsión contra este anclado, cerrarla
 		local ses = expulsionSessions[objetivo]
 		if ses and ses.anclado == player then
@@ -555,10 +582,32 @@ function ctx.cooldownKeyFor(objetivo)
 	return objetivo
 end
 
+
+function ctx.formatTiempoRestante(segundos)
+	local s = math.max(0, math.ceil(tonumber(segundos) or 0))
+	if s >= 3600 then
+		local h = math.floor(s / 3600)
+		local m = math.floor((s % 3600) / 60)
+		if m > 0 then return h .. " h " .. m .. " min" end
+		return h .. " h"
+	elseif s >= 60 then
+		local m = math.floor(s / 60)
+		local r = s % 60
+		if r > 0 then return m .. " min " .. r .. " s" end
+		return m .. " min"
+	end
+	return s .. " s"
+end
+
 function ctx.anclar(player, objetivo)
 	if player == objetivo then return end
 	if ancladoA[player] then return end
 	if not objetivo or not objetivo.Parent then return end
+	-- tutorial protect: nadie se ancla al jugador en tutorial
+	if typeof(objetivo) == "Instance" and objetivo:IsA("Player") and ctx.tutorialActive and ctx.tutorialActive[objetivo] then
+		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Ese jugador está en el tutorial" })
+		return
+	end
 
 	if ancladoA[objetivo] == player then
 		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "No puedes anclarte a alguien que ya está anclado a ti" })
@@ -576,15 +625,25 @@ function ctx.anclar(player, objetivo)
 	end
 
 	if antiAnclajeHasta[objetivo] and tick() < antiAnclajeHasta[objetivo] then
-		NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Este jugador tiene protección anti-anclaje" })
+		local resto = antiAnclajeHasta[objetivo] - tick()
+		local t = ctx.formatTiempoRestante(resto)
+		local quien = (typeof(objetivo) == "Instance" and objetivo:IsA("Player")) and "Este jugador" or "Este bot"
+		NotificarCliente:FireClient(player, {
+			tipo = "error",
+			mensaje = quien .. " tiene protección · quedan " .. t,
+		})
 		return
 	end
 
 	do
 		local ck = ctx.cooldownKeyFor(objetivo)
 		if cooldownReanclar[ck] and cooldownReanclar[ck][player] and tick() < cooldownReanclar[ck][player] then
-			local resto = math.ceil(cooldownReanclar[ck][player] - tick())
-			NotificarCliente:FireClient(player, { tipo = "error", mensaje = "Debes esperar " .. resto .. "s para volver a anclarte" })
+			local resto = cooldownReanclar[ck][player] - tick()
+			local t = ctx.formatTiempoRestante(resto)
+			NotificarCliente:FireClient(player, {
+				tipo = "error",
+				mensaje = "Te expulsaron · no puedes anclarte aquí · quedan " .. t,
+			})
 			return
 		end
 	end
@@ -617,36 +676,40 @@ function ctx.anclar(player, objetivo)
 		mensaje = "Anclado a " .. objetivo.Name
 	})
 
-	NotificarCliente:FireClient(objetivo, {
-		tipo = "te_anclaron",
-		quien = player.Name,
-		userId = player.UserId,
-		mensaje = player.Name .. " se ha anclado a ti"
-	})
+	if typeof(objetivo) == "Instance" and objetivo:IsA("Player") then
+		NotificarCliente:FireClient(objetivo, {
+			tipo = "te_anclaron",
+			quien = player.Name,
+			userId = player.UserId,
+			mensaje = player.Name .. " se ha anclado a ti"
+		})
+	end
 
 	-- Sesión de expulsión (solo el objetivo ve la UI hasta que intente)
-	expulsionSessions[objetivo] = {
-		anclado = player,
-		dinero = Config.EXPULSION.DINERO_MINIMO,
-		defensaClicks = 0,
-		fase = "preparacion", -- preparacion | batalla | fin
-	}
-	local info = Config.calcExpulsion(Config.EXPULSION.DINERO_MINIMO, 0, ctx.getStat(player, "Nivel"))
-	ExpulsionUpdate:FireClient(objetivo, {
-		activo = true,
-		rol = "objetivo",
-		fase = "preparacion",
-		quien = player.Name,
-		userId = player.UserId,
-		dinero = info.dinero,
-		dineroParaFull = info.dineroParaFull,
-		prob = info.probabilidad,
-		probInicial = info.probInicial,
-		probMax = info.probMax,
-		reduccion = 0,
-		reduccionMax = info.reduccionMax,
-	})
-	-- El anclado NO recibe UI de defensa hasta la batalla
+	-- Expulsión UI solo si el objetivo es un jugador real
+	if typeof(objetivo) == "Instance" and objetivo:IsA("Player") then
+		expulsionSessions[objetivo] = {
+			anclado = player,
+			dinero = Config.EXPULSION.DINERO_MINIMO,
+			defensaClicks = 0,
+			fase = "preparacion",
+		}
+		local info = Config.calcExpulsion(Config.EXPULSION.DINERO_MINIMO, 0, ctx.getStat(player, "Nivel"))
+		ExpulsionUpdate:FireClient(objetivo, {
+			activo = true,
+			rol = "objetivo",
+			fase = "preparacion",
+			quien = player.Name,
+			userId = player.UserId,
+			dinero = info.dinero,
+			dineroParaFull = info.dineroParaFull,
+			prob = info.probabilidad,
+			probInicial = info.probInicial,
+			probMax = info.probMax,
+			reduccion = 0,
+			reduccionMax = info.reduccionMax,
+		})
+	end
 end
 
 RunService.Heartbeat:Connect(function()

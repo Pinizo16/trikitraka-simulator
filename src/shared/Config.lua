@@ -30,6 +30,7 @@ Config.ICONS = {
 	check = "rbxassetid://128258429125931",
 	error = "rbxassetid://71459806238689",
 	estrella = "rbxassetid://126056857452190",
+	stats = "rbxassetid://110436511784004",
 }
 
 -- Textos de ProximityPrompt
@@ -543,11 +544,11 @@ function Config.getNivelMinimoRebirth(rebirthsActuales)
 end
 
 function Config.getMultiXPAlRebirth(numeroRebirth)
-	return Config.lookup(Config.MULTI_XP_AL_REBIRTH, math.max(1, numeroRebirth or 1), false)
+return Config.lookup(Config.MULTI_XP_AL_REBIRTH, math.max(1, numeroRebirth or 1), false)
 end
 
 function Config.getMultiClicksAlRebirth(numeroRebirth)
-	return Config.lookup(Config.MULTI_CLICKS_AL_REBIRTH, math.max(1, numeroRebirth or 1), false)
+return Config.lookup(Config.MULTI_CLICKS_AL_REBIRTH, math.max(1, numeroRebirth or 1), false)
 end
 
 function Config.getMaxXP(nivel)
@@ -582,7 +583,7 @@ end
 
 function Config.getIntervaloAnclaje(nivelesVelocidad)
 	local idx = math.max(0, math.floor(tonumber(nivelesVelocidad) or 0)) + 1
-	return Config.lookup(Config.INTERVALO_ANCLAJE_POR_VEL, idx, false)
+return Config.lookup(Config.INTERVALO_ANCLAJE_POR_VEL, idx, false)
 end
 
 function Config.getSegundosReducidos(nivelesVelocidad)
@@ -599,7 +600,7 @@ end
 
 function Config.getWalkSpeed(nivelesWalk)
 	local idx = math.max(0, math.floor(tonumber(nivelesWalk) or 0)) + 1
-	return Config.lookup(Config.WALKSPEED_POR_NIVELES, idx, false)
+return Config.lookup(Config.WALKSPEED_POR_NIVELES, idx, false)
 end
 
 function Config.getRangoMonedas(nivel)
@@ -668,12 +669,12 @@ function Config.calcExpulsion(dinero, defensaClicks, nivelAnclado)
 end
 
 function Config.getMultiPrecioNivel(nivel)
-	return Config.lookup(Config.PRECIO_MULTI_POR_NIVEL_TABLA, math.max(1, nivel or 1), true)
+return Config.lookup(Config.PRECIO_MULTI_POR_NIVEL_TABLA, math.max(1, nivel or 1), true)
 end
 
 function Config.getMultiDescuentoRebirth(rebirths)
 	local idx = math.max(0, math.floor(tonumber(rebirths) or 0)) + 1
-	return Config.lookup(Config.PRECIO_DESCUENTO_POR_REBIRTH_TABLA, idx, false)
+return Config.lookup(Config.PRECIO_DESCUENTO_POR_REBIRTH_TABLA, idx, false)
 end
 
 function Config.getPrecioFinal(precioBase, nivelJugador, rebirths)
@@ -685,22 +686,22 @@ function Config.getPrecioFinal(precioBase, nivelJugador, rebirths)
 	return math.max(1, math.floor(p))
 end
 function Config.getPrecioAnti(item, nivelJugador, rebirths)
-	return Config.getPrecioFinal(item.coste, nivelJugador, rebirths)
+return Config.getPrecioFinal(item.coste, nivelJugador, rebirths)
 end
 function Config.getPrecioClicks(pack, nivelJugador, clicksPorClickActual, rebirths)
 	local actual = math.max(1, clicksPorClickActual or 1)
 	local base = pack.costeBase * (1 + (actual - 1) * Config.PRECIO_MULTI_POR_CLICKS_OWNED)
-	return Config.getPrecioFinal(base, nivelJugador, rebirths)
+return Config.getPrecioFinal(base, nivelJugador, rebirths)
 end
 function Config.getPrecioVelocidad(pack, nivelJugador, velocidadActual, rebirths)
 	local actual = math.max(0, velocidadActual or 0)
 	local base = pack.costeBase * (1 + actual * Config.PRECIO_MULTI_POR_VEL_OWNED)
-	return Config.getPrecioFinal(base, nivelJugador, rebirths)
+return Config.getPrecioFinal(base, nivelJugador, rebirths)
 end
 function Config.getPrecioWalk(pack, nivelJugador, walkOwned, rebirths)
 	local actual = math.max(0, walkOwned or 0)
 	local base = pack.costeBase * (1 + actual * (Config.PRECIO_MULTI_POR_WALK_OWNED or 0.10))
-	return Config.getPrecioFinal(base, nivelJugador, rebirths)
+return Config.getPrecioFinal(base, nivelJugador, rebirths)
 end
 
 -- =====================================================
@@ -717,11 +718,12 @@ Config.LEADERBOARDS = {
 	Face = "Back",
 	Boards = {
 		{
-			id = "nivel_conseguido",
-			titulo = "NIVEL CONSEGUIDO",
-			stat = "NivelConseguido",
-			partName = "LB_NivelConseguido",
-			orderedStore = "AuraLB_NivelConseguido_v1",
+			id = "xp_total",
+			titulo = "XP TOTAL",
+			stat = "XPTotal",
+			partName = "LB_XPTotal",
+			altPartNames = { "LB_NivelConseguido" },
+			orderedStore = "AuraLB_XPTotal_v1",
 		},
 		{
 			id = "monedas",
@@ -758,5 +760,12 @@ function Config.extraerNivelBot(nombre)
 	local num = string.match(nombre, "%d+")
 	return num and tonumber(num) or 5
 end
+
+-- Tutorial
+Config.TUTORIAL = {
+	Enabled = true,
+	DelaySeconds = 1.5,
+	POST_PROTECTION_S = 60, -- protección tras completar si reclamó diario
+}
 
 return Config
