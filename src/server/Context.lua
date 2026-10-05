@@ -69,4 +69,21 @@ Context.ReiniciarProgreso = getOrCreateRemote("ReiniciarProgreso")
 Context.PedirStatsExtra = getOrCreateRemote("PedirStatsExtra")
 Context.StatsExtra = getOrCreateRemote("StatsExtra")
 
+
+-- Diagnóstico centralizado (respeta Config.DEBUG)
+function Context.log(system, ...)
+	local d = Context.Config and Context.Config.DEBUG
+	if not d or not d.Enabled then
+		return
+	end
+	if system and d[system] == false then
+		return
+	end
+	print("[Triki:" .. tostring(system or "?") .. "]", ...)
+end
+
+function Context.warnLog(system, ...)
+	warn("[Triki:" .. tostring(system or "?") .. "]", ...)
+end
+
 return Context

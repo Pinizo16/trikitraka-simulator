@@ -30,7 +30,7 @@ Config.ICONS = {
 	check = "rbxassetid://128258429125931",
 	error = "rbxassetid://71459806238689",
 	estrella = "rbxassetid://126056857452190",
-	stats = "rbxassetid://110436511784004",
+	stats = "rbxassetid://110436511784004", -- Estadísticas (cian)
 }
 
 -- Textos de ProximityPrompt
@@ -458,6 +458,19 @@ Config.DAILY = {
 }
 
 Config.DEBUG_ANIM = false
+
+-- Diagnóstico (prints). Enabled=false → sin spam en producción
+Config.DEBUG = {
+	Enabled = false,
+	Init = true,       -- si Enabled, siempre log de carga de módulos
+	Anclaje = false,
+	Economy = false,
+	Bots = false,
+	DataStore = false,
+	Duelos = false,
+	Client = false,
+	Remotes = false,
+}
 
 -- =====================================================
 -- RECOMENDACIONES INTELIGENTES (promos contextuales)

@@ -1,4 +1,33 @@
-# Changelog — Triki Traka Simulator
+## Unificación servidor (Game.lua)
+
+- Módulos Mod1–4, Economy, Stick, Safety, Leaderboards y stubs fusionados en `Game.lua` (secciones como funciones anidadas).
+- Bootstrap: solo `init.server.lua` + `Context.lua` + `Game.lua`.
+- Eliminada duplicación Economy/Mod3 y Safety/ModAuditFix.
+- Iconos de UI solo desde Config; bordes de rail por color de icono.
+- Sección Top mundial del panel de estadísticas eliminada.
+
+# Changelog
+
+## [Server Unify] 2026-10-05
+
+- Consolidated all server gameplay modules into `Game.lua` (Context + init remain separate).
+- Load order encoded as numbered sections (Safety last for setStat wrap).
+- Expanded stat clamps; remote rate limits on shop/rebirth/desanclar/stats/reset.
+- Removed obsolete multi-module loader and exact Stick duplicate.
+
+ — Triki Traka Simulator
+
+## [Audit] 2026-10-05
+
+- Removed duplicate `ModAnclajePosFix.lua` (identical to `Stick.lua`).
+- Added `Config.DEBUG` + `Context.log` for opt-in diagnostics.
+- Expanded Safety stat clamps (XPTotal, Victorias, Robux upgrade stats).
+- Rate-limits on shop, rebirth, desanclar, stats, reset remotes.
+- Clearer server bootstrap logging and module responsibility comments.
+- Client uses Config.ICONS only; side-button borders colored per action.
+- Stats panel: removed global rank section (leaderboard Parts remain).
+- Client stats UI poll interval 1.5s; optional `dlog`.
+
 
 Formato: entradas nuevas **arriba**.
 

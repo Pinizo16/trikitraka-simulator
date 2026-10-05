@@ -62,40 +62,16 @@ local TEMA = {
 	bordeOscuro = Color3.fromRGB(20, 20, 20),
 }
 
-local ICONS = {
-	retar = "rbxassetid://83110458830804",
-	tienda = "rbxassetid://76296796961930",
-	daily = "rbxassetid://72026764082673",
-	desanclar = "rbxassetid://123062413236676",
-	rebirths = "rbxassetid://113672674287478",
-	multixp = "rbxassetid://110501070079990",
-	escudo = "rbxassetid://118637266651214",
-	moneda = "rbxassetid://107603336117213",
-	anclar = "rbxassetid://82600871217538",
-	bot = "rbxassetid://93008045120285",
-	cerrar = "rbxassetid://137563504571740",
-	robux = "rbxassetid://126269559326665",
-	poder = "rbxassetid://107797704612734",
-	clicks = "rbxassetid://87727658692121",
-	walk = "rbxassetid://131735636843512",
-	velAnclaje = "rbxassetid://122816742959105",
-	monedasPack = "rbxassetid://103764369792951",
-	candado = "rbxassetid://96207977416905",
-	check = "rbxassetid://128258429125931",
-	error = "rbxassetid://71459806238689",
-	estrella = "rbxassetid://126056857452190",
-	stats = "rbxassetid://110436511784004",
-}
+-- Iconos solo desde Config (fuente única)
+local ICONS = (Config and Config.ICONS) or {}
 
-if Config and Config.ICONS then
-	for k, v in pairs(Config.ICONS) do
-		if typeof(v) == "string" and v ~= "" and v ~= "rbxassetid://0" then
-			ICONS[k] = v
-		elseif typeof(v) == "string" and ICONS[k] == nil then
-			ICONS[k] = v
-		end
+local function dlog(...)
+	local d = Config and Config.DEBUG
+	if d and d.Enabled and d.Client then
+		print("[AuraUI]", ...)
 	end
 end
+
 
 -- Decal (AssetType 13) no renderiza en ImageLabel; rbxthumb sí funciona con esos IDs
 local function normalizeAsset(id)
@@ -703,7 +679,7 @@ sideLayout.Padding = UDim.new(0, 10)
 sideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 sideLayout.Parent = sidePanel
 
-local function crearBotonIcono(iconAsset, order, accent)
+local function crearBotonIcono(iconAsset, order, borderColor)
 	local b = Instance.new("ImageButton")
 	b.Size = UDim2.new(0, 52, 0, 52)
 	b.BackgroundColor3 = TEMA.fondoOscuro
@@ -712,37 +688,39 @@ local function crearBotonIcono(iconAsset, order, accent)
 	b.ZIndex = 16
 	b.Parent = sidePanel
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 12)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = accent or TEMA.oro
-	stroke.Thickness = 2
-	stroke.Parent = b
+	local st = Instance.new("UIStroke")
+	st.Name = "Border"
+	st.Color = borderColor or TEMA.oro
+	st.Thickness = 2
+	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	st.Parent = b
 	setButtonIcon(b, iconAsset, 11)
+	local baseBg = TEMA.fondoOscuro
 	b.MouseEnter:Connect(function()
 		b.BackgroundColor3 = Color3.fromRGB(45, 50, 68)
+		st.Thickness = 2.5
 	end)
 	b.MouseLeave:Connect(function()
-		b.BackgroundColor3 = TEMA.fondoOscuro
+		b.BackgroundColor3 = baseBg
+		st.Thickness = 2
 	end)
 	return b
 end
 
-local btnRetar     = crearBotonIcono(ICONS.retar, 1, TEMA.rojo)
-local btnTienda    = crearBotonIcono(ICONS.tienda, 2, TEMA.naranja)
-local btnDaily     = crearBotonIcono(ICONS.daily, 3, TEMA.morado)
-local btnStats     = crearBotonIcono(ICONS.stats or ICONS.estrella, 4, Color3.fromRGB(80, 200, 220))
+-- Bordes del color de cada icono
+local COL_RETAR = Color3.fromRGB(220, 55, 55)
+local COL_TIENDA = Color3.fromRGB(255, 150, 40)
+local COL_DAILY = Color3.fromRGB(160, 80, 220)
+local COL_STATS = Color3.fromRGB(70, 170, 255)
+local COL_DESANCLAR = Color3.fromRGB(160, 110, 55)
+
+local btnRetar     = crearBotonIcono(ICONS.retar, 1, COL_RETAR)
+local btnTienda    = crearBotonIcono(ICONS.tienda, 2, COL_TIENDA)
+local btnDaily     = crearBotonIcono(ICONS.daily, 3, COL_DAILY)
+local btnStats     = crearBotonIcono(ICONS.stats, 4, COL_STATS)
 btnStats.Name = "BtnStats"
 btnStats.Visible = true
 btnStats.Active = true
-btnStats.BackgroundColor3 = Color3.fromRGB(22, 36, 42)
-do
-	local st = btnStats:FindFirstChildOfClass("UIStroke")
-	if not st then
-		st = Instance.new("UIStroke")
-		st.Parent = btnStats
-	end
-	st.Color = Color3.fromRGB(80, 200, 220)
-	st.Thickness = 2.5
-end
 btnStats.MouseButton1Click:Connect(function()
 	local so = screenGui:FindFirstChild("MenuStats")
 	if not so then
@@ -760,7 +738,7 @@ btnStats.MouseButton1Click:Connect(function()
 		if abrirStats then abrirStats(true) end
 	end
 end)
-local btnDesanclar = crearBotonIcono(ICONS.desanclar, 5, Color3.fromRGB(139, 90, 43))
+local btnDesanclar = crearBotonIcono(ICONS.desanclar, 5, COL_DESANCLAR)
 btnDesanclar.Visible = false
 print("[AuraUI] BtnStats listo (conexión temprana)")
 
@@ -2591,7 +2569,7 @@ task.spawn(function()
 		if statsOuter.Visible then
 			pcall(actualizarStats)
 		end
-		task.wait(0.75)
+		task.wait(1.5)
 	end
 end)
 
