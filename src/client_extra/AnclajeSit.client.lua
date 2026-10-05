@@ -36,3 +36,5 @@ task.spawn(function()
 end)
 
 print("[AnclajeSit] activo: solo gestiona atributo Anclado (anim sit personalizada en Animate)")
+
+-- Ok /

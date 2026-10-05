@@ -3,6 +3,8 @@
 -- ÚNICO archivo para equilibrar el juego
 -- =====================================================
 
+-- No soy matematico asique no se como equilibrar el juego con las configuraciones /
+
 local Config = {}
 
 -- =====================================================
@@ -30,7 +32,7 @@ Config.ICONS = {
 	check = "rbxassetid://128258429125931",
 	error = "rbxassetid://71459806238689",
 	estrella = "rbxassetid://126056857452190",
-	stats = "rbxassetid://110436511784004", -- Estadísticas (cian)
+	stats = "rbxassetid://110436511784004",
 }
 
 -- Textos de ProximityPrompt

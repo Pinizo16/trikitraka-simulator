@@ -132,3 +132,5 @@ Formato: entradas nuevas **arriba**.
 - Los logs de depuración del servidor pueden seguir usando símbolos en `print` de recomendaciones (no son UI).
 
 ---
+
+Alquien no ha puesto la nueva actualizacion de optimizacion de codigo, ni los cambios de stats en el chage log ehh /

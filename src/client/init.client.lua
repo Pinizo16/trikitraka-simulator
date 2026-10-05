@@ -1,7 +1,8 @@
 -- =====================================================
 -- init.client.lua (LocalScript = StarterPlayerScripts.Client)
 -- =====================================================
-print("[AuraUI] Cliente iniciando...")
+
+-- En realidad proximamente será mejor en vez de hacer print o warn, intentar utilizar http service para almacenar los logs importantes de las partidas de los jugadores con todo el contexto, con "los logs importantes" me refiero a los errores y pequeños fallos /
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42,13 +43,16 @@ Config.EXPULSION = Config.EXPULSION or { DINERO_MINIMO = 10, DEFENSA_DURACION = 
 
 -- =====================================================
 -- TRIKE ARCADE — tokens + iconos
--- =====================================================
+-- =====================================================ç
+
+-- esto deberia estar en config /
+
 local TEMA = {
 	fondo = Color3.fromRGB(18, 20, 28),
 	fondoOscuro = Color3.fromRGB(30, 33, 48),
 	superficie = Color3.fromRGB(30, 33, 48),
 	oro = Color3.fromRGB(245, 197, 66),
-	amarillo = Color3.fromRGB(245, 197, 66), -- alias
+	amarillo = Color3.fromRGB(245, 197, 66),
 	naranja = Color3.fromRGB(255, 138, 31),
 	rojo = Color3.fromRGB(231, 76, 60),
 	verde = Color3.fromRGB(46, 204, 113),
@@ -111,7 +115,6 @@ local function setButtonIcon(btn, asset, pad)
 	btn.ImageTransparency = 0
 	btn.ScaleType = Enum.ScaleType.Fit
 	btn.BackgroundColor3 = btn.BackgroundColor3
-	-- márgenes internos
 	local p = Instance.new("UIPadding")
 	p.PaddingTop = UDim.new(0, pad)
 	p.PaddingBottom = UDim.new(0, pad)
@@ -157,7 +160,6 @@ local function waitRemote(name)
 	return r
 end
 
-print("[AuraUI] Esperando remotes...")
 local SolicitarDueloDirecto = waitRemote("SolicitarDueloDirecto")
 local ResponderDuelo       = waitRemote("ResponderDuelo")
 local IniciarMinijuego     = waitRemote("IniciarMinijuego")
@@ -1572,6 +1574,7 @@ if NotificarCliente then
 				end
 			end
 			-- Una sola notificación (antes salían 2 por Stick + desanclar)
+			-- No es una buena manera de solucionarlo /
 			local msg = tostring(data.mensaje or "")
 			if msg == "" or msg == "Libre" then
 				msg = "Te has desanclado"
@@ -2046,10 +2049,11 @@ end
 setupNotifHandlers()
 
 -- =====================================================
--- =====================================================
 -- ESTADÍSTICAS (fuera del tutorial)
+-- =====================================================
+
 local function setupEstadisticas()
--- ESTADÍSTICAS: tarjetas visuales centradas (estilo mockup)
+-- tarjetas visuales centradas (estilo mockup)
 local statsRanksCache = { proteccionRestante = 0 }
 
 local statsOuter = Instance.new("Frame")
@@ -2581,6 +2585,9 @@ local function setupTutorial()
 -- =====================================================
 -- TUTORIAL interactivo
 -- =====================================================
+
+-- esto tambien deberia estar en config /
+
 local TUTORIAL_STEPS = {
 	{
 		id = "welcome",

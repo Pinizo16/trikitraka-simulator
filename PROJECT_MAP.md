@@ -73,3 +73,5 @@ Context → Mod1 → Mod2 → Mod3 → Mod4
 | Gate al join | `Mod2` PlayerAdded |
 | UI pasos | `client/init.client.lua` |
 | Flag | `Config.TUTORIAL` |
+
+Alguien no ha actualizado el proyect map ehh /

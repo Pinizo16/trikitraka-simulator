@@ -1,6 +1,4 @@
 -- Bootstrap: Context + Game unificado
-print("[GestionAura] Cargando...")
-
 local ok, err = pcall(function()
 	local ctx = require(script:WaitForChild("Context"))
 	require(script:WaitForChild("Game"))(ctx)
@@ -11,3 +9,5 @@ if ok then
 else
 	warn("[GestionAura] ERROR:", err)
 end
+
+-- no entiendo el objetivo de este script /

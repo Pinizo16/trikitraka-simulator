@@ -3419,7 +3419,8 @@ return function(ctx)
 			Rebirths = true,
 			Victorias = true,
 		}
-
+		
+		-- esto deberia estar en config /
 		local TEMA = {
 			fondo = Color3.fromRGB(18, 20, 28),
 			oro = Color3.fromRGB(255, 200, 60),
@@ -3864,3 +3865,5 @@ return function(ctx)
 	section_9()
 
 end
+
+-- tengo poca idea de backend asique no he opinado acerca de nada /

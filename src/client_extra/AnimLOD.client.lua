@@ -235,3 +235,5 @@ Workspace.ChildRemoved:Connect(function(obj)
 end)
 
 print("[AnimLOD] culling activo — si DIST_PC=0 no deberías ver anim de bots lejos")
+
+-- Ok /
